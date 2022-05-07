@@ -70,13 +70,13 @@ class AirHockeyTable:
         T_tmp[4][4] = 1
         T_tmp[5][5] = 1
         self.m_rimGlobalTransforms[3] = T_tmp
-        self.m_rimGlobalTransformsInv[3] = lg.inv(T_tmp)
+        self.m_rimGlobalTransformsInv[3] = T_tmp.T
 
-    def setDynamichsParameter(self, restitution, rimFriction):
+    def set_dynamic_parameter(self, restitution, rimFriction):
         self.m_e = restitution
         self.m_rimFriction = rimFriction
 
-    def applyCollision(self, state):
+    def apply_collision(self, state):
         p = state[0:2]
         vel = state[2:4]
         jacobian=np.eye(6)
@@ -169,7 +169,6 @@ class SystemModel:
         self.J_linear[4][5] = dt
         self.J_linear[5][5] = 1
 
-
     def f(self, x, u):
         x_ = np.zeros(6)
         x_[0:2] = x[0:2] + u * x[2:4]
@@ -186,31 +185,26 @@ class SystemModel:
         x_[5] = x[5]
         return x_
 
-
-    def updateJacobians(self, x, u):
+    def update_jacobian(self, x, u):
         self.F = self.J_linear
 
-
-    def updateJacobians(self, x, u):
-        self.F = self.J_linear
-
-    def setDamping(self, damping):
+    def set_damping(self, damping):
         self.tableDamping = damping
 
-    def setTableFriction(self, mu_):
+    def set_table_friction(self, mu_):
         self.tablFriction = mu_
 
-    def setTableDynamicsParam(self, tableRes, rimFriction):
+    def set_table_dynamics_param(self, tableRes, rimFriction):
         self.tableRes = tableRes
         self.rimFriction = rimFriction
 
     #   self.collisionModel.setTableDynamicsParam(tableRes,rimFriction)
-    def isOutsideBoundary(self, measurement):
+    def is_outside_boundary(self, measurement):
         if (abs(measurement[1]) > self.tableWidth / 2 - self.puckRadius + 0.01) or measurement[0] < -0.01 or \
                 measurement[0] > self.tableLength - self.puckRadius + 0.01:
             return True
         return False
-    # def isOutsideBoundart(self,state):
+    # def is_outside_boundary(self,state):
     #     if (abs(state[1]) > self.tableWidth / 2 - self.puckRadius + 0.01) or state[0] < -0.01 or \
     #             state[0] > self.tableLength - self.puckRadius + 0.01:
     #         return True
