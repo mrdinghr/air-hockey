@@ -4,6 +4,7 @@ def tableplot(table):
     fig=plt.figure()
     ax=fig.add_subplot(111)
     rect=plt.Rectangle(xy,table.m_length,table.m_width,fill=False)
+    rect.set_linewidth(10)
     ax.add_patch(rect)
     plt.xlabel("table width is "+str(table.m_width)+", table length is "+str(table.m_length))
 
