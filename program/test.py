@@ -14,11 +14,11 @@ jacobian = np.eye(6)
 u = 0.01
 
 
-'''
+
 #code to caculate start point with gaussian distribution in x position after certain step
 resx=[[]]
 resy=[[]]
-statesum=200 # observe after how many steps
+statesum=400 # observe after how many steps
 pointsum=50 # the number of points, initialized by gaussion distribution
 for j in range(pointsum):
     resX = []
@@ -37,7 +37,7 @@ for j in range(pointsum):
 for i in range(pointsum):
     plt.scatter(resx[i], resy[i], alpha=0.1,c='b')
 plt.show()
-'''
+
 '''
 #final position
 #code to caculate start point with gaussian distribution in x position after certain step
@@ -63,7 +63,7 @@ plt.scatter(resx, resy, alpha=0.1,c='b')
 plt.show()
 '''
 
-
+'''
 # code to caculate start point with gaussian distribution in x position
 # observe when puck first time touch the line x=certain value
 resx=[[]]
@@ -89,5 +89,4 @@ for j in range(pointsum):
 for i in range(pointsum):
     plt.scatter(resx[i], resy[i], alpha=0.1,c='b')
 plt.show()
-
-
+'''
