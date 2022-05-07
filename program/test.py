@@ -12,17 +12,18 @@ system=air_hockey_baseline.SystemModel(tableDamping=0.1, tableFriction=0.01, tab
 jacobian = np.eye(6)
 
 u = 0.01
-resx=[[]]
-resy=[[]]
+
+
 '''
 #code to caculate start point with gaussian distribution in x position after certain step
-
-statesum=100 # observe after how many steps
-pointsum=200 # the number of points, initialized by gaussion distribution
+resx=[[]]
+resy=[[]]
+statesum=200 # observe after how many steps
+pointsum=50 # the number of points, initialized by gaussion distribution
 for j in range(pointsum):
     resX = []
     resY = []
-    x = np.array([np.random.normal(0.4,0.05), 0, 10, 1, 1, 0.5])  # state x y dx dy theta dtheta
+    x = np.array([np.random.normal(0.4,0.1), 0, 1, 1, 1, 0.5])  # state x y dx dy theta dtheta
     resX.append(x[0])
     resY.append(x[1])
     for i in range(statesum):
@@ -31,12 +32,37 @@ for j in range(pointsum):
             x=system.f(x,u)
         resX.append(x[0])
         resY.append(x[1])
-    resx.append(resX[statesum])
-    resy.append(resY[statesum])
-plt.scatter(resx,resy,alpha=0.4)
+    resx.append(resX)
+    resy.append(resY)
+for i in range(pointsum):
+    plt.scatter(resx[i], resy[i], alpha=0.1,c='b')
 plt.show()
 '''
+#final position
+#code to caculate start point with gaussian distribution in x position after certain step
+resx=[]
+resy=[]
+statesum=200 # observe after how many steps
+pointsum=50 # the number of points, initialized by gaussion distribution
+for j in range(pointsum):
+    resX = []
+    resY = []
+    x = np.array([np.random.normal(0.4,0.1), 0, 1, 1, 1, 0.5])  # state x y dx dy theta dtheta
+    resX.append(x[0])
+    resY.append(x[1])
+    for i in range(statesum):
+        has_collision, x = table.apply_collision(x)
+        if not has_collision:
+            x=system.f(x,u)
+        resX.append(x[0])
+        resY.append(x[1])
+    resx.append(resX[-1])
+    resy.append(resY[-1])
+plt.scatter(resx, resy, alpha=0.1,c='b')
+plt.show()
 
+
+'''
 # code to caculate start point with gaussian distribution in x position
 # observe when puck first time touch the line x=certain value
 observepos=1.5  # observe after how many steps
@@ -60,4 +86,5 @@ for j in range(pointsum):
 for i in range(pointsum):
     plt.scatter(resx[i], resy[i], alpha=0.1,c='b')
 plt.show()
+'''
 
