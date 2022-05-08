@@ -3,6 +3,12 @@ import numpy as np
 
 
 # need to set title and plt.show() after using this function
+# table_plot: draw the desktop frame
+# jectory_plot: draw the trajectory of amount of puck_num pucks.
+#               puck state is initialized by x y dx dy theta d_theta
+#               x_var, y_var, dx_var, dy_var, theta_var, d_theta_var is to decide which variable is gaussian variable
+#               touchline: criteria to stop. when True, stop when touchn line x=touch_line_x or y=touch_line_y
+#               when False, stop after state_num step
 
 def table_plot(table):
     xy = [0, -table.m_width / 2]
@@ -18,12 +24,12 @@ def table_plot(table):
 
 def trajectory_plot(table, system, u, x, y, dx, dy, theta, d_theta, x_var, y_var, dx_var, dy_var, theta_var,
                     d_theta_var, state_num,
-                    point_num, touchline, touch_line_x, touch_line_y):
+                    puck_num, touchline, touch_line_x, touch_line_y):
     table_plot(table)
     resx = []
     resy = []
     state = np.array([x, y, dx, dy, theta, d_theta])
-    for j in range(point_num):
+    for j in range(puck_num):
         resX = []
         resY = []
         state[0] = np.random.normal(x, x_var)
@@ -47,5 +53,5 @@ def trajectory_plot(table, system, u, x, y, dx, dy, theta, d_theta, x_var, y_var
                     break
         resx.append(resX)
         resy.append(resY)
-    for i in range(point_num):
+    for i in range(puck_num):
         plt.scatter(resx[i], resy[i], alpha=0.1, c='b')

@@ -11,7 +11,7 @@ jacobian = np.eye(6)
 
 u = 0.01
 trajectory(table=table, system=system, u=u, x=0.5, y=0, dx=2, dy=2, theta=2, d_theta=1, x_var=0.05, y_var=0.05, dx_var=0, dy_var=0, theta_var=0, d_theta_var=0, state_num=200,
-                    point_num=10, touchline=True, touch_line_x=2, touch_line_y=-0.1)
+                    puck_num=10, touchline=True, touch_line_x=2, touch_line_y=-0.1)
 plt.title("x velocity as gaussian variable")
 plt.show()
 
