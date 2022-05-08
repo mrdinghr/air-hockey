@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import air_hockey_baseline
-from airhockeyplot import trajectory_plot as trajectory
+from air_hockey_plot import trajectory_plot as trajectory
 
 table = air_hockey_baseline.AirHockeyTable(length=2, width=1, goalWidth=0.2, puckRadius=0.05, restitution=0.7,
                                            rimFriction=0.1, dt=0.01)
