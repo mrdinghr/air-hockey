@@ -2,6 +2,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+# need to set title and plt.show() after using this function
+
 def table_plot(table):
     xy = [0, -table.m_width / 2]
     fig = plt.figure()
@@ -39,11 +41,11 @@ def trajectory_plot(table, system, u, x, y, dx, dy, theta, d_theta, x_var, y_var
             resX.append(state[0])
             resY.append(state[1])
             if touchline:
-                if state[0] * np.sign(x - touch_line_x) < touch_line_x or state[1] * np.sign(
-                        y - touch_line_y) < touch_line_y:
+                if state[0] * np.sign(touch_line_x - x) > np.sign(touch_line_x - x) * touch_line_x or (
+                        state[1] * np.sign(touch_line_y - y) > touch_line_y * np.sign(touch_line_y - y)
+                        ):
                     break
         resx.append(resX)
         resy.append(resY)
     for i in range(point_num):
         plt.scatter(resx[i], resy[i], alpha=0.1, c='b')
-    plt.show()
