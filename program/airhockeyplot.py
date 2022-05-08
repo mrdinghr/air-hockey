@@ -36,12 +36,17 @@ def trajectory_plot(table, system, u, x, y, dx, dy, theta, d_theta, x_var, y_var
         resX.append(state[0])
         resY.append(state[1])
         for i in range(state_num):
-            has_collision, state =table.apply_collision(x)
+            has_collision, state =table.apply_collision(state)
             if not has_collision:
                 state=system.f(state,u)
-            resX.append(x[0])
-            resY.append(x[1])
+            resX.append(state[0])
+            resY.append(state[1])
             if touchline:
-                if state[0]*np.sign(x-touch_line_x)<touch_line_x or state[1]*np.sign(y-touch_line_y)<touch_line_y:
+                if state[0]*np.sign(x-touch_line_x) < touch_line_x or state[1]*np.sign(y-touch_line_y) < touch_line_y:
                     break
+        resx.append(resX)
+        resy.append(resY)
+    for i in range(point_num):
+        plt.scatter(resx[i],resy[i],alpha=0.1,c='b')
+    plt.show()
 
