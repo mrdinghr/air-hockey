@@ -1,19 +1,16 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import air_hockey_baseline
-from airhockeyplot import table_plot as tp
 from airhockeyplot import trajectory_plot as trajectory
 
 table = air_hockey_baseline.AirHockeyTable(length=2, width=1, goalWidth=0.2, puckRadius=0.05, restitution=0.7,
                                            rimFriction=0.1, dt=0.01)
-tp(table)
 system=air_hockey_baseline.SystemModel(tableDamping=0.1, tableFriction=0.01, tableLength=2, tableWidth=1, goalWidth=0.2, puckRadius=0.05, malletRadius=0.1,tableRes=0.7, malletRes=0.7, rimFriction=0.1, dt=0.01)
 
 jacobian = np.eye(6)
 
 u = 0.01
-trajectory(table=table, system=system, u=u, x=0.5, y=0, dx=2, dy=2, theta=2, d_theta=1, x_var=0.005, y_var=0.005, dx_var=0, dy_var=0, theta_var=0, d_theta_var=0, state_num=200,
-                    point_num=20, touchline=False, touch_line_x=None, touch_line_y=None)
+trajectory(table=table, system=system, u=u, x=0.5, y=0, dx=2, dy=2, theta=2, d_theta=1, x_var=0., y_var=0., dx_var=2, dy_var=0, theta_var=0, d_theta_var=0, state_num=200,
+                    point_num=5, touchline=False, touch_line_x=None, touch_line_y=None)
 
 '''
 #code to caculate start point with gaussian distribution in x position after certain step
