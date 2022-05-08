@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import air_hockey_baseline
-from tableplot import tableplot as tp
+from airhockeyplot import table_plot as tp
 
 
 table = air_hockey_baseline.AirHockeyTable(length=2, width=1, goalWidth=0.2, puckRadius=0.05, restitution=0.7,
