@@ -4,7 +4,7 @@ import numpy as np
 
 # need to set title and plt.show() after using this function
 # table_plot: draw the desktop frame
-# jectory_plot: draw the trajectory of amount of puck_num pucks.
+# trajectory_plot: draw the trajectory of amount of puck_num pucks.
 #               puck state is initialized by x y dx dy theta d_theta
 #               x_var, y_var, dx_var, dy_var, theta_var, d_theta_var is to decide which variable is gaussian variable
 #               touchline: criteria to stop. when True, stop when touchn line x=touch_line_x or y=touch_line_y
