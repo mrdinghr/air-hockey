@@ -19,7 +19,7 @@ class AirHockeyTable:
         self.m_rimFriction = rimFriction
         self.m_dt = dt
 
-        ref = np.array([length / 2, 0. ])
+        ref = np.array([length / 2, 0.])
         offsetP1 = np.array([-self.m_length / 2 + self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
         offsetP2 = np.array([-self.m_length / 2 + self.m_puckRadius, self.m_width / 2 - self.m_puckRadius])
         offsetP3 = np.array([self.m_length / 2 - self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
@@ -79,7 +79,7 @@ class AirHockeyTable:
     def apply_collision(self, state):
         p = state[0:2]
         vel = state[2:4]
-        jacobian=np.eye(6)
+        jacobian = np.eye(6)
         if abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
             return False, state
         elif abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
@@ -148,7 +148,7 @@ class AirHockeyTable:
 
 class SystemModel:
     def __init__(self, tableDamping, tableFriction, tableLength, tableWidth, goalWidth, puckRadius, malletRadius,
-                    tableRes, malletRes, rimFriction, dt):
+                 tableRes, malletRes, rimFriction, dt):
         self.tableDamping = tableDamping
         self.tableFriction = tableFriction
         self.tableLength = tableLength
@@ -168,6 +168,7 @@ class SystemModel:
         self.J_linear[3][3] = 1 - dt * tableDamping
         self.J_linear[4][5] = dt
         self.J_linear[5][5] = 1
+        self.F = self.J_linear
 
     def f(self, x, u):
         x_ = np.zeros(6)
@@ -192,7 +193,7 @@ class SystemModel:
         self.tableDamping = damping
 
     def set_table_friction(self, mu_):
-        self.tablFriction = mu_
+        self.tableFriction = mu_
 
     def set_table_dynamics_param(self, tableRes, rimFriction):
         self.tableRes = tableRes
