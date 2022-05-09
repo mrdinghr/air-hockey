@@ -81,9 +81,9 @@ class AirHockeyTable:
         vel = state[2:4]
         jacobian = np.eye(6)
         if abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
-            return False, state
+            return False, state, jacobian
         elif abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
-            return False, state
+            return False, state, jacobian
         u = vel * self.m_dt
         i = 0
         for i in range(self.m_boundary.shape[0]):
@@ -142,8 +142,8 @@ class AirHockeyTable:
                 state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
                 state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
                 state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
-                return True, state
-        return False, state
+                return True, state, jacobian
+        return False, state, jacobian
 
 
 class SystemModel:
@@ -217,3 +217,10 @@ class SystemModel:
         self.malletRes=malletRestitution
         self.collisionModel.setMalletDynamics(malletRes)
 '''
+
+
+class Observationmodel:
+    def __init__(self, state):
+        self.observation = np.array([state[0], state[1], state[4]])
+        self.H = np.eye(3)
+

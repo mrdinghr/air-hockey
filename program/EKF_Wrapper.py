@@ -1,13 +1,24 @@
 from filterpy.kalman import ExtendedKalmanFilter
-import air_hockey_baseline
-import numpy as np
-table = air_hockey_baseline.AirHockeyTable(length=2, width=1, goalWidth=0.2, puckRadius=0.05, restitution=0.7,
-                                           rimFriction=0.1, dt=0.01)
-system = air_hockey_baseline.SystemModel(tableDamping=0.1, tableFriction=0.01, tableLength=2, tableWidth=1,
-                                         goalWidth=0.2, puckRadius=0.05, malletRadius=0.1, tableRes=0.7, malletRes=0.7,
-                                         rimFriction=0.1, dt=0.01)
+from filterpy.common import Q_discrete_white_noise
+'''
+class EKF_Wrapper:
+    def __init__(self,P ,):
+        self.P=P
 
-jacobian = np.eye(6)
-
-u = 0.01
+    def predict_state(self,state,u,system,table):
+        hascollision, state, jacobian=table.applycollision(state)
+        if hascollision:
+            system.update_jacobian(state, u)
+            state=system.f(state, u)
+        self.P= system.F*self.P*system.F.T
+'''
+def EKF_Wrapper(state, table, system, observation, measure):
+    dt= system.dt
+    rk=ExtendedKalmanFilter(dim_x=6, dim_z=3, dim_u=1)
+    rk.x=state
+    rk.F=system.F
+    #rk.R=
+    #rk.Q
+    #rk.P
+    rk.update(measure, observation.H, observation.observation)
 
