@@ -224,3 +224,6 @@ class Observationmodel:
         self.observation = np.array([state[0], state[1], state[4]])
         self.H = np.eye(3)
 
+    def observation(self, state):
+        ob = np.array([state[0], state[1], state[4]])
+        return ob

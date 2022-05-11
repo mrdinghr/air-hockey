@@ -57,4 +57,4 @@ def trajectory_plot(table, system, u, x, y, dx, dy, theta, d_theta, x_var, y_var
         resy.append(resY)
     for i in range(puck_num):
         plt.scatter(resx[i], resy[i], alpha=0.1, c='b')
-    return resx,resy
+    return resx, resy
