@@ -41,7 +41,9 @@ def trajectory_plot(table, system, u, x, y, dx, dy, theta, d_theta, x_var, y_var
         resX.append(state[0])
         resY.append(state[1])
         for i in range(state_num):
-            has_collision, state, jacobian = table.apply_collision(state)
+            has_collision, state, jacobian, score = table.apply_collision(state)
+            if score:
+                break
             if not has_collision:
                 state = system.f(state, u)
             resX.append(state[0])

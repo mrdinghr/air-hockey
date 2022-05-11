@@ -12,7 +12,7 @@ system = air_hockey_baseline.SystemModel(tableDamping=0., tableFriction=0.4, tab
 jacobian = np.eye(6)
 
 u = 0.01
-trajectory(table=table, system=system, u=u, x=0.5, y=0, dx=10, dy=1, theta=2, d_theta=0., x_var=0.0, y_var=0.0,
+trajectory(table=table, system=system, u=u, x=0.5, y=0, dx=10, dy=0, theta=2, d_theta=0., x_var=0.0, y_var=0.0,
            dx_var=0., dy_var=0., theta_var=0, d_theta_var=5, state_num=1000,
            puck_num=1, touchline=False, touch_line_x=2, touch_line_y=2)
 plt.title("angular velocity as gaussian variable")
