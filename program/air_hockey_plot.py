@@ -17,7 +17,7 @@ def table_plot(table):
     rect = plt.Rectangle(xy, table.m_length, table.m_width, fill=False)
     rect.set_linewidth(10)
     ax.add_patch(rect)
-    plt.xlabel(
+    plt.ylabel(
         "table width is " + str(table.m_width) + ", table length is " + str(table.m_length) + ", puck radius is " + str(
             table.m_puckRadius))
 
@@ -57,3 +57,4 @@ def trajectory_plot(table, system, u, x, y, dx, dy, theta, d_theta, x_var, y_var
         resy.append(resY)
     for i in range(puck_num):
         plt.scatter(resx[i], resy[i], alpha=0.1, c='b')
+    return resx,resy
