@@ -15,7 +15,7 @@ class air_hockey_EKF:
         self.P = P
         self.u = u
         self.predict_state = None
-        self.F = self.system.F
+        self.F = None
         self.score = False
 
     def predict(self):
@@ -97,7 +97,7 @@ plt.plot(resx, resy, color='b', label='EKF')
 plt.title('only EKF')
 plt.legend()
 plt.subplot(1, 3, 2)
-plt.plot(orgx, orgy, color='g', label='raw data')
+plt.scatter(orgx, orgy, color='g', label='raw data')
 plt.title('only raw data')
 plt.legend()
 plt.subplot(1, 3, 3)

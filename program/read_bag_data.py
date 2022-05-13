@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 root_dir = os.path.abspath(os.path.dirname(__file__) + '/..')
 data_dir = os.path.join(root_dir, 'rosdata')
-bag = rosbag.Bag(os.path.join(data_dir, '2021-09-13-17-23-11.bag'))
+bag = rosbag.Bag(os.path.join(data_dir, '2021-09-13-17-23-30.bag'))
 
 se3_table_world = None
 
@@ -27,7 +27,7 @@ for topic, msg, t in bag.read_messages('/tf'):
 measurement = np.array(measurement)
 measurement[:, -1] -= measurement[0, -1]
 
-np.save("example_data2", measurement)
+np.save("2021-09-13-17-23-30", measurement)
 
 fig, axes = plt.subplots(3)
 axes[0].scatter(measurement[:, -1], measurement[:, 0], s=2)

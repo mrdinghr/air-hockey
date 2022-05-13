@@ -137,7 +137,7 @@ class AirHockeyTable:
                     self.m_jacCollision[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
                     self.m_jacCollision[3][3] = -self.m_e
                     self.m_jacCollision[4][5] = self.m_dt
-                    self.m_jacCollision[5][3] = -2 / (3 * self.m_puckRadius)
+                    self.m_jacCollision[5][3] = self.m_jacCollision[2][3]*2 / self.m_puckRadius
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                 state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
                 state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
@@ -180,12 +180,12 @@ class SystemModel:
         #         x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * np.sign(x[2:4]))
         # elif abs(x[3]) > 1e-6:
         #     x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * np.sign([0, x[3]]))
-        if np.sqrt(x[2] ** x[2] + x[3] ** x[3]) > 1e-6:
+        if np.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
             x_[2:4] = x[2:4] - u * (
-                        self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / np.sqrt(x[2] ** x[2] + x[3] ** x[3]))
+                        self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / np.sqrt(x[2] * x[2] + x[3] * x[3]))
         else:
             x_[2:4] = x[2:4] - u * self.tableDamping * x[2:4]
-        angle = np.mod(x[4] + u * x[5], pi / 2)
+        angle = np.mod(x[4] + u * x[5], pi * 2)
         if angle > pi:
             angle -= pi * 2
         elif angle < -pi:
