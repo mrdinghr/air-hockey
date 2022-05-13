@@ -173,15 +173,23 @@ class SystemModel:
     def f(self, x, u):
         x_ = np.zeros(6)
         x_[0:2] = x[0:2] + u * x[2:4]
-        if np.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
-            x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * np.sign(x[2:4]))
+        # if abs(x[2]) > 1e-6:
+        #     if abs(x[3]) < 1e-6:
+        #         x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * np.sign([x[2], 0]))
+        #     else:
+        #         x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * np.sign(x[2:4]))
+        # elif abs(x[3]) > 1e-6:
+        #     x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * np.sign([0, x[3]]))
+        if np.sqrt(x[2] ** x[2] + x[3] ** x[3]) > 1e-6:
+            x_[2:4] = x[2:4] - u * (
+                        self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / np.sqrt(x[2] ** x[2] + x[3] ** x[3]))
         else:
             x_[2:4] = x[2:4] - u * self.tableDamping * x[2:4]
         angle = np.mod(x[4] + u * x[5], pi / 2)
         if angle > pi:
-            angle -= pi / 2
+            angle -= pi * 2
         elif angle < -pi:
-            angle += pi / 2
+            angle += pi * 2
         x_[4] = angle
         x_[5] = x[5]
         return x_
