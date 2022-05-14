@@ -79,13 +79,20 @@ resx = [state[0]]
 resy = [state[1]]
 start_t = data[0][-1]
 for i in range(len(data) - 1):
-    puck_EKF.predict()
-    resx.append(puck_EKF.predict_state[0])
-    resy.append(puck_EKF.predict_state[1])
-    if i > 0 and abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
-        puck_EKF.update(np.array(data[i + 1][0:3]))
+    if not puck_EKF.score:
+        puck_EKF.predict()
+        resx.append(puck_EKF.predict_state[0])
+        resy.append(puck_EKF.predict_state[1])
+        if i > 0 and abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
+            puck_EKF.update(np.array(data[i + 1][0:3]))
+        else:
+            puck_EKF.state = puck_EKF.predict_state
     else:
-        puck_EKF.state = puck_EKF.predict_state
+        puck_EKF.state = np.array(
+            [data[i][0], data[i][1], (data[i - 1][0] - data[i][0]) / (data[i - 1][3] - data[i][3]),
+             (data[i - 1][1] - data[i][1]) / (data[i - 1][3] - data[i][3]), data[i][3],
+             (data[i - 1][2] - data[i][2]) / (data[i - 1][3] - data[i][3])])
+        puck_EKF.predict()
 table_plot(table)
 plt.plot(resx[0], resy[0], marker='d', color='r')
 plt.plot(orgx, orgy, color='g', label='raw data')
@@ -93,7 +100,7 @@ plt.plot(resx, resy, color='b', label='EKF')
 plt.legend()
 plt.show()
 plt.subplot(1, 3, 1)
-plt.plot(resx, resy, color='b', label='EKF')
+plt.scatter(resx, resy, color='b', label='EKF')
 plt.title('only EKF')
 plt.legend()
 plt.subplot(1, 3, 2)

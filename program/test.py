@@ -14,10 +14,10 @@ system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001
 jacobian = np.eye(6)
 
 u = 1/120
-resx, resy = trajectory(table=table, system=system, u=u, x=0.7, y=0, dx=4, dy=4, theta=2, d_theta=0., x_var=0.02,
-                        y_var=0.02,
-                        dx_var=0., dy_var=0., theta_var=0, d_theta_var=0, state_num=100,
-                        puck_num=10, touchline=False, touch_line_x=2, touch_line_y=2)
+resx, resy = trajectory(table=table, system=system, u=u, x=1.38578465, y=-0.31278382, dx=(1.41637898-1.38578465)/(3.59138727-3.58327246), dy=(0.31278382-0.28991479)/(3.59138727-3.58327246), theta=2.94323937, d_theta=(3.59138727-3.58327246)/(3.59138727-3.58327246), x_var=0.0,
+                        y_var=0.0,
+                        dx_var=0., dy_var=0., theta_var=0, d_theta_var=0, state_num=10000,
+                        puck_num=1, touchline=False, touch_line_x=2, touch_line_y=2)
 plt.show()
 x_final = []
 y_final = []
