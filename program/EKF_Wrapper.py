@@ -64,7 +64,7 @@ puck.update(np.array([1.89, 0.3, 0]))
 puck.predict()
 print()
 '''
-data = np.load("example_data.npy")
+data = np.load("example_data1.npy")
 orgx = []
 orgy = []
 for i in data:

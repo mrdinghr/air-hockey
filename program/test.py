@@ -13,11 +13,19 @@ system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001
 
 jacobian = np.eye(6)
 
-u = 1/120
-resx, resy = trajectory(table=table, system=system, u=u, x=1.38578465, y=-0.31278382, dx=(1.41637898-1.38578465)/(3.59138727-3.58327246), dy=(0.31278382-0.28991479)/(3.59138727-3.58327246), theta=2.94323937, d_theta=(3.59138727-3.58327246)/(3.59138727-3.58327246), x_var=0.0,
-                        y_var=0.0,
-                        dx_var=0., dy_var=0., theta_var=0, d_theta_var=0, state_num=10000,
-                        puck_num=1, touchline=False, touch_line_x=2, touch_line_y=2)
+u = 1 / 120
+state_num = 100
+puck_num = 100
+x_var = 0.0
+y_var = 0.0
+dx_var = 0.0
+dy_var = 0.0
+theta_var = 0
+d_theta_var = 15
+resx, resy = trajectory(table=table, system=system, u=u, x=0.4, y=0, dx=2, dy=-2, theta=0, d_theta=50, x_var=x_var,
+                        y_var=y_var,
+                        dx_var=dx_var, dy_var=dy_var, theta_var=theta_var, d_theta_var=d_theta_var, state_num=state_num,
+                        puck_num=puck_num, touchline=False, touch_line_x=2, touch_line_y=2)
 plt.show()
 x_final = []
 y_final = []
@@ -28,7 +36,6 @@ for i in resy:
 # print("mean of x " + str(np.mean(resx)) + " mean of y " + str(np.mean(resy)) + " var of x " + str(
 #     np.var(resx)) + " var of y " + str(np.var(resy)))
 ax = plt.subplot(111)
-# table_plot(table)  # plot the table square
 cov = np.cov(x_final, y_final)
 eigen_value, v = np.linalg.eig(cov)
 eigen_value = np.sqrt(eigen_value)
@@ -37,11 +44,19 @@ ell = matplotlib.patches.Ellipse(xy=(np.mean(x_final), np.mean(y_final)), width=
                                  height=eigen_value[1] * np.sqrt(s) * 2, angle=np.rad2deg(np.arccos(v[0, 0])),
                                  alpha=0.3)
 ax.add_artist(ell)
+# plot the table square
+xy = [0, -table.m_width / 2]
+rect = plt.Rectangle(xy, table.m_length, table.m_width, fill=False)
+rect.set_linewidth(10)
+ax.add_patch(rect)
+# plot the table square
+ax.scatter(x_final, y_final)
 plt.xlim((0, table.m_length))
 plt.ylim((-table.m_width / 2, table.m_width / 2))
-plt.scatter(x_final, y_final)
 plt.axis('scaled')
 plt.axis('equal')
-# plt.xlabel("var of final x " + str(np.var(resx)) + " var of final y " + str(np.var(resy)))
-plt.title("x y as gaussian variable x_var,y_var=0.02 stop after 100 step")
+plt.xlabel("var of final x " + str(np.var(x_final)) + " var of final y " + str(np.var(y_final)))
+plt.title(
+    str(puck_num) + " pucks with dtheta as gaussian variable; dtheta var is " + str(d_theta_var) + " stop after " + str(
+        state_num) + " step")
 plt.show()
