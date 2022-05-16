@@ -53,18 +53,7 @@ Q[2][2] = Q[3][3] = 3e-7
 Q[4][4] = 1.0e-2
 Q[5][5] = 1.0e-1
 P = np.eye(6) * 0.01
-'''
-z = np.array([0.51, 0.001, 1])
-one step test
-state = np.array([1.85, 0.3, 5.0, 0, 0, 0])
-y = []
-puck = air_hockey_EKF(state=state, u=1 / 120, system=system, table=table, Q=Q, R=R, P=P)
-puck.predict()
-puck.update(np.array([1.89, 0.3, 0]))
-puck.predict()
-print()
-'''
-data = np.load("example_data.npy")
+data = np.load("example_data1.npy")
 orgx = []
 orgy = []
 for i in data:
@@ -74,15 +63,18 @@ for i in data:
 state = np.array([data[0][0], data[0][1], (data[1][0] - data[0][0]) / (data[1][3] - data[0][3]),
                   (data[1][1] - data[0][1]) / (data[1][3] - data[0][3]), data[0][3],
                   (data[1][2] - data[0][2]) / (data[1][3] - data[0][3])])
-puck_EKF = air_hockey_EKF(state=state, u=1 / 120, system=system, table=table, Q=Q, R=R, P=P)
-resx = [state[0]]
-resy = [state[1]]
+u = 1 / 120
+puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
+EKF__res_state = []
+EKF_res_P = []
+EKF_res_dynamic = []
 start_t = data[0][-1]
 for i in range(len(data) - 1):
     if not puck_EKF.score:
         puck_EKF.predict()
-        resx.append(puck_EKF.predict_state[0])
-        resy.append(puck_EKF.predict_state[1])
+        EKF__res_state.append(puck_EKF.predict_state)
+        EKF_res_P.append(puck_EKF.P)
+        EKF_res_dynamic.append(puck_EKF.F)
         if i > 0 and abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
             puck_EKF.update(np.array(data[i + 1][0:3]))
         else:
@@ -93,23 +85,34 @@ for i in range(len(data) - 1):
              (data[i - 1][1] - data[i][1]) / (data[i - 1][3] - data[i][3]), data[i][3],
              (data[i - 1][2] - data[i][2]) / (data[i - 1][3] - data[i][3])])
         puck_EKF.predict()
-table_plot(table)
-plt.plot(resx[0], resy[0], marker='d', color='r')
-plt.plot(orgx, orgy, color='g', label='raw data')
-plt.plot(resx, resy, color='b', label='EKF')
-plt.legend()
+'''
+Kalman Smoothing
+F： dynamic jacobian as in EKF
+
+xp_n+1=x_n*F   x_n EKF predicted state, p_n
+p_p_n+1=F*p_n+Q 
+C_n=p_n*F.T*inv(P_p_n+1)
+'''
+smooth_res_state = [EKF__res_state[-1]]
+xs = EKF__res_state[-1]
+time = np.shape(EKF__res_state)[0]
+for i in range(time - 2):
+    xp = EKF_res_dynamic[-i - 2] @ EKF__res_state[-i - 2]
+    pp = EKF_res_dynamic[-i - 2] @ EKF_res_P[-i - 2] @ EKF_res_dynamic[-i - 2].T
+    c = EKF_res_P[-i - 2]
+    xs = EKF__res_state[-i - 2] + c @ (xs - xp)
+    smooth_res_state.append(xs)
+resx = []
+resy = []
+for t in EKF__res_state:
+    resx.append(t[0])
+    resy.append(t[1])
+plt.plot(resx, resy)
 plt.show()
-plt.subplot(1, 3, 1)
-plt.scatter(resx, resy, color='b', label='EKF')
-plt.title('only EKF')
-plt.legend()
-plt.subplot(1, 3, 2)
-plt.scatter(orgx, orgy, color='g', label='raw data')
-plt.title('only raw data')
-plt.legend()
-plt.subplot(1, 3, 3)
-plt.plot(orgx, orgy, color='g', label='raw data')
-plt.plot(resx, resy, color='b', label='EKF')
-plt.title('EKF vs raw data')
-plt.legend()
+smooth_res_x = []
+smooth_res_y = []
+for m in smooth_res_state:
+    smooth_res_x.insert(0, m[0])
+    smooth_res_y.insert(0, m[1])
+plt.plot(smooth_res_x, smooth_res_x)
 plt.show()
