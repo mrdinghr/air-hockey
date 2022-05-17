@@ -53,7 +53,7 @@ Q[2][2] = Q[3][3] = 3e-7
 Q[4][4] = 1.0e-2
 Q[5][5] = 1.0e-1
 P = np.eye(6) * 0.01
-data = np.load("example_data.npy")
+data = np.load("example_data2.npy")
 orgx = []
 orgy = []
 for i in data:
@@ -72,7 +72,7 @@ start_t = data[0][-1]
 for i in range(len(data) - 1):
     if not puck_EKF.score:
         puck_EKF.predict()
-        if i > 0 and abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
+        if i > 0 and 1.2/120 > abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
             puck_EKF.update(np.array(data[i + 1][0:3]))
             EKF_res_state.append(puck_EKF.predict_state)
             EKF_res_P.append(puck_EKF.P)
@@ -96,7 +96,7 @@ C_n=p_n*F.T*inv(P_p_n+1)
 smooth_res_state = [EKF_res_state[-1]]
 xs = EKF_res_state[-1]
 time = np.shape(EKF_res_state)[0]
-for j in range(time - 1):
+for j in range(time - 2):
     xp = EKF_res_dynamic[-j - 2] @ EKF_res_state[-j - 2]
     pp = EKF_res_dynamic[-j - 2] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 2].T + Q
     c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 2].T @ lg.inv(pp)
@@ -113,8 +113,8 @@ smooth_res_y = []
 for m in range(time - 2):
     smooth_res_x.append(smooth_res_state[-1 - m][0])
     smooth_res_y.append(smooth_res_state[-1 - m][1])
+plt.plot(resx[0], resy[0], marker='d', color='r')
 plt.scatter(orgx, orgy, color='r', label='Raw Data')
-plt.scatter(smooth_res_x[0], smooth_res_y[0], marker='d', color='r')
-plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
+# plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
 plt.legend()
 plt.show()

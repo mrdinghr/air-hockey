@@ -64,7 +64,7 @@ puck.update(np.array([1.89, 0.3, 0]))
 puck.predict()
 print()
 '''
-data = np.load("example_data.npy")
+data = np.load("example_data1.npy")
 orgx = []
 orgy = []
 for i in data:
@@ -83,7 +83,7 @@ for i in range(len(data) - 1):
         puck_EKF.predict()
         resx.append(puck_EKF.predict_state[0])
         resy.append(puck_EKF.predict_state[1])
-        if i > 0 and abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
+        if i > 0 and 1.2/120 > abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
             puck_EKF.update(np.array(data[i + 1][0:3]))
         else:
             puck_EKF.state = puck_EKF.predict_state
