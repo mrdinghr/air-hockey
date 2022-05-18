@@ -64,7 +64,7 @@ puck.update(np.array([1.89, 0.3, 0]))
 puck.predict()
 print()
 '''
-data = np.load("example_data1.npy")
+data = np.load("example_data2.npy")
 orgx = []
 orgy = []
 for i in data:
@@ -90,7 +90,7 @@ for i in range(len(data) - 1):
     else:
         puck_EKF.state = np.array(
             [data[i][0], data[i][1], (data[i - 1][0] - data[i][0]) / (data[i - 1][3] - data[i][3]),
-             (data[i - 1][1] - data[i][1]) / (data[i - 1][3] - data[i][3]), data[i][3],
+             (data[i - 1][1] - data[i][1]) / (data[i - 1][3] - data[i][3]), data[i][2],
              (data[i - 1][2] - data[i][2]) / (data[i - 1][3] - data[i][3])])
         puck_EKF.predict()
 table_plot(table)
