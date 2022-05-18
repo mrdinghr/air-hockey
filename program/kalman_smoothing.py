@@ -54,7 +54,12 @@ Q[2][2] = Q[3][3] = 3e-7
 Q[4][4] = 1.0e-2
 Q[5][5] = 1.0e-1
 P = np.eye(6) * 0.01
-data = np.load("example_data.npy")
+raw_data = np.load("example_data1.npy")
+data = []
+for i in range(1, len(raw_data)):
+    if abs(raw_data[i][0] - raw_data[i - 1][0]) < 0.005:
+        continue
+    data.append(raw_data[i])
 orgx = []
 orgy = []
 for i in data:
@@ -70,8 +75,7 @@ EKF_res_state = []
 EKF_res_P = []
 EKF_res_dynamic = []
 EKF_res_score = []
-EKF_res_v = []
-# start_t = data[0][-1]
+EKF_res_collision = []
 for i in range(len(data) - 1):
     if not puck_EKF.score:
         puck_EKF.predict()
@@ -81,13 +85,13 @@ for i in range(len(data) - 1):
             EKF_res_state.append(puck_EKF.predict_state)
             EKF_res_P.append(puck_EKF.P)
             EKF_res_dynamic.append(puck_EKF.F)
-            EKF_res_v.append(puck_EKF.has_collision)
+            EKF_res_collision.append(puck_EKF.has_collision)
         else:
             puck_EKF.state = puck_EKF.predict_state
             EKF_res_state.append(puck_EKF.predict_state)
             EKF_res_P.append(puck_EKF.P)
             EKF_res_dynamic.append(puck_EKF.F)
-            EKF_res_v.append(puck_EKF.has_collision)
+            EKF_res_collision.append(puck_EKF.has_collision)
     else:
         puck_EKF.state = np.array(
             [data[i][0], data[i][1], (data[i - 1][0] - data[i][0]) / (data[i - 1][3] - data[i][3]),
@@ -98,7 +102,7 @@ for i in range(len(data) - 1):
         EKF_res_P.append(puck_EKF.P)
         EKF_res_dynamic.append(puck_EKF.F)
         EKF_res_score.append(True)
-        EKF_res_v.append(puck_EKF.has_collision)
+        EKF_res_collision.append(puck_EKF.has_collision)
 '''
 Kalman Smoothing
 F： dynamic jacobian as in EKF
@@ -114,10 +118,14 @@ xp = np.zeros(6)
 for j in range(time - 2):
     if not EKF_res_score[-2 - j]:
         xp = EKF_res_dynamic[-j - 2] @ EKF_res_state[-j - 2]
-        if not EKF_res_v[-j-2]:
-            if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] * EKF_res_state[-j - 2][3]) > 1e-6:
+        if not EKF_res_collision[-j - 2]:
+            if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                       EKF_res_state[-j - 2][3]) > 1e-6:
                 xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
-                        system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][2:4] / np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] * EKF_res_state[-j - 2][3]))
+                        system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
+                                                                                                  2:4] / np.sqrt(
+                    EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                    EKF_res_state[-j - 2][3]))
             else:
                 xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
         pp = EKF_res_dynamic[-j - 2] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 2].T + Q
@@ -158,5 +166,19 @@ plt.plot(resx[0], resy[0], marker='d', color='r')
 plt.scatter(resx, resy, color='g', label='EKF')
 plt.scatter(orgx, orgy, color='r', label='Raw Data')
 plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
+plt.legend()
+plt.show()
+# next plot x y with time
+plt.subplot(1, 2, 1)
+plt.plot(orgx, label='raw data')
+plt.plot(resx, label='EKF')
+plt.plot(smooth_res_x, label='kalman smooth')
+plt.legend()
+plt.title('x')
+plt.subplot(1, 2, 2)
+plt.plot(orgy, label='raw data')
+plt.plot(resy, label='EKF')
+plt.plot(smooth_res_y, label='kalman smooth')
+plt.title('y')
 plt.legend()
 plt.show()
