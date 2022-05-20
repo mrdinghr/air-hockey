@@ -54,21 +54,36 @@ Q[2][2] = Q[3][3] = 3e-7
 Q[4][4] = 1.0e-2
 Q[5][5] = 1.0e-1
 P = np.eye(6) * 0.01
-raw_data = np.load("example_data1.npy")
-data = []
+raw_data = np.load("example_data.npy")
+pre_data = []
 for i in range(1, len(raw_data)):
-    if abs(raw_data[i][0] - raw_data[i - 1][0]) < 0.005:
+    if abs(raw_data[i][0] - raw_data[i - 1][0]) < 0.005 and abs(raw_data[i][1] - raw_data[i - 1][1]) < 0.005:
         continue
-    data.append(raw_data[i])
+    pre_data.append(raw_data[i])
 orgx = []
 orgy = []
-for i in data:
+for i in pre_data:
     i[0] += table.m_length / 2
     orgx.append(i[0])
     orgy.append(i[1])
-state = np.array([data[0][0], data[0][1], (data[1][0] - data[0][0]) / (data[1][3] - data[0][3]),
-                  (data[1][1] - data[0][1]) / (data[1][3] - data[0][3]), data[0][3],
-                  (data[1][2] - data[0][2]) / (data[1][3] - data[0][3])])
+state_dx = ((pre_data[1][0] - pre_data[0][0]) / (pre_data[1][3] - pre_data[0][3]) + (
+            pre_data[2][0] - pre_data[1][0]) / (
+                    pre_data[2][3] - pre_data[1][3]) + (pre_data[3][0] - pre_data[2][0]) / (
+                        pre_data[3][3] - pre_data[2][3])) / 3
+state_dy = ((pre_data[1][1] - pre_data[0][1]) / (pre_data[1][3] - pre_data[0][3]) + (
+            pre_data[2][1] - pre_data[1][1]) / (
+                    pre_data[2][3] - pre_data[1][3]) + (pre_data[3][1] - pre_data[2][1]) / (
+                        pre_data[3][3] - pre_data[2][3])) / 3
+state_dtheta = ((pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0][3]) + (
+            pre_data[2][2] - pre_data[1][2]) / (
+                        pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
+                            pre_data[3][3] - pre_data[2][3])) / 3
+state = np.array([pre_data[3][0], pre_data[3][1], state_dx, state_dy, pre_data[3][2], state_dtheta])
+# state = np.array([data[0][0], data[0][1], (data[1][0] - data[0][0]) / (data[1][3] - data[0][3]),
+#                   (data[1][1] - data[0][1]) / (data[1][3] - data[0][3]), data[0][2],
+#                   (data[1][2] - data[0][2]) / (data[1][3] - data[0][3])])
+data = pre_data[1:]
+
 u = 1 / 120
 puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
 EKF_res_state = []
@@ -76,12 +91,12 @@ EKF_res_P = []
 EKF_res_dynamic = []
 EKF_res_score = []
 EKF_res_collision = []
-for i in range(len(data) - 1):
+for i in range(1, len(data)):
     if not puck_EKF.score:
         puck_EKF.predict()
         EKF_res_score.append(False)
-        if i > 0 and 1.5 / 120 > abs(data[i][-1] - data[i - 1][-1]) > 0.6 / 120:
-            puck_EKF.update(np.array(data[i + 1][0:3]))
+        if 1.5 / 120 > abs(data[i][-1] - data[i - 1][-1]) > 0.5 / 120:
+            puck_EKF.update(np.array(data[i+1][0:3]))
             EKF_res_state.append(puck_EKF.predict_state)
             EKF_res_P.append(puck_EKF.P)
             EKF_res_dynamic.append(puck_EKF.F)
@@ -117,8 +132,8 @@ time = np.shape(EKF_res_state)[0]
 xp = np.zeros(6)
 for j in range(time - 2):
     if not EKF_res_score[-2 - j]:
-        xp = EKF_res_dynamic[-j - 2] @ EKF_res_state[-j - 2]
-        if not EKF_res_collision[-j - 2]:
+        xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
+        if not EKF_res_collision[-j - 1]:
             if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
                        EKF_res_state[-j - 2][3]) > 1e-6:
                 xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
@@ -128,13 +143,13 @@ for j in range(time - 2):
                     EKF_res_state[-j - 2][3]))
             else:
                 xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
-        pp = EKF_res_dynamic[-j - 2] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 2].T + Q
-        c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 2].T @ lg.inv(pp)
+        pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
+        c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ lg.inv(pp)
         xs = EKF_res_state[-j - 2] + c @ (xs - xp)
         smooth_res_state.append(xs)
     else:
         xs = EKF_res_state[-j - 2]
-        xp = EKF_res_dynamic[-j - 2] @ EKF_res_state[-j - 2]
+        xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
         smooth_res_state.append(xs)
 resx = []
 resy = []
@@ -147,36 +162,36 @@ for m in smooth_res_state:
     smooth_res_x.insert(0, m[0])
     smooth_res_y.insert(0, m[1])
 plt.subplot(1, 3, 1)
-plt.plot(resx[0], resy[0], marker='d', color='r')
-plt.scatter(orgx, orgy, color='r', label='Raw Data')
+plt.plot(orgx[0], orgy[0], marker='d', color='r')
+plt.scatter(orgx[1:], orgy[1:], color='r', label='Raw Data')
 plt.title('raw data')
 plt.legend()
 plt.subplot(1, 3, 2)
-plt.plot(resx[0], resy[0], marker='d', color='r')
+plt.plot(orgx[4], orgy[4], marker='d', color='r')
 plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
 plt.title('kalman smooth')
 plt.legend()
 plt.subplot(1, 3, 3)
-plt.plot(resx[0], resy[0], marker='d', color='r')
+plt.plot(orgx[4], orgy[4], marker='d', color='r')
 plt.scatter(resx, resy, color='g', label='EKF')
 plt.title('EKF')
 plt.legend()
 plt.show()
-plt.plot(resx[0], resy[0], marker='d', color='r')
+plt.plot(orgx[4], orgy[4], marker='d', color='r')
 plt.scatter(resx, resy, color='g', label='EKF')
-plt.scatter(orgx, orgy, color='r', label='Raw Data')
+plt.scatter(orgx[4:], orgy[4:], color='r', label='Raw Data')
 plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
 plt.legend()
 plt.show()
 # next plot x y with time
 plt.subplot(1, 2, 1)
-plt.plot(orgx, label='raw data')
+plt.plot(orgx[4:], label='raw data')
 plt.plot(resx, label='EKF')
 plt.plot(smooth_res_x, label='kalman smooth')
 plt.legend()
 plt.title('x')
 plt.subplot(1, 2, 2)
-plt.plot(orgy, label='raw data')
+plt.plot(orgy[4:], label='raw data')
 plt.plot(resy, label='EKF')
 plt.plot(smooth_res_y, label='kalman smooth')
 plt.title('y')

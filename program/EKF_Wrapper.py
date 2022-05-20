@@ -64,7 +64,7 @@ puck.update(np.array([1.89, 0.3, 0]))
 puck.predict()
 print()
 '''
-data = np.load("example_data2.npy")
+data = np.load("example_data.npy")
 orgx = []
 orgy = []
 for i in data:
@@ -72,7 +72,7 @@ for i in data:
     orgx.append(i[0])
     orgy.append(i[1])
 state = np.array([data[0][0], data[0][1], (data[1][0] - data[0][0]) / (data[1][3] - data[0][3]),
-                  (data[1][1] - data[0][1]) / (data[1][3] - data[0][3]), data[0][3],
+                  (data[1][1] - data[0][1]) / (data[1][3] - data[0][3]), data[0][2],
                   (data[1][2] - data[0][2]) / (data[1][3] - data[0][3])])
 puck_EKF = air_hockey_EKF(state=state, u=1 / 120, system=system, table=table, Q=Q, R=R, P=P)
 resx = [state[0]]
@@ -93,6 +93,8 @@ for i in range(len(data) - 1):
              (data[i - 1][1] - data[i][1]) / (data[i - 1][3] - data[i][3]), data[i][2],
              (data[i - 1][2] - data[i][2]) / (data[i - 1][3] - data[i][3])])
         puck_EKF.predict()
+        resx.append(puck_EKF.predict_state[0])
+        resy.append(puck_EKF.predict_state[1])
 table_plot(table)
 plt.plot(resx[0], resy[0], marker='d', color='r')
 plt.plot(orgx, orgy, color='g', label='raw data')
