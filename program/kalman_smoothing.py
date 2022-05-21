@@ -78,7 +78,7 @@ state_dtheta = ((pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0
             pre_data[2][2] - pre_data[1][2]) / (
                         pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
                             pre_data[3][3] - pre_data[2][3])) / 3
-state = np.array([pre_data[3][0], pre_data[3][1], state_dx, state_dy, pre_data[3][2], state_dtheta])
+state = np.array([pre_data[1][0], pre_data[1][1], state_dx, state_dy, pre_data[1][2], state_dtheta])
 # state = np.array([data[0][0], data[0][1], (data[1][0] - data[0][0]) / (data[1][3] - data[0][3]),
 #                   (data[1][1] - data[0][1]) / (data[1][3] - data[0][3]), data[0][2],
 #                   (data[1][2] - data[0][2]) / (data[1][3] - data[0][3])])
@@ -95,18 +95,19 @@ for i in range(1, len(data)):
     if not puck_EKF.score:
         puck_EKF.predict()
         EKF_res_score.append(False)
-        if 1.5 / 120 > abs(data[i][-1] - data[i - 1][-1]) > 0.5 / 120:
+        EKF_res_state.append(puck_EKF.predict_state)
+        EKF_res_P.append(puck_EKF.P)
+        EKF_res_dynamic.append(puck_EKF.F)
+        EKF_res_collision.append(puck_EKF.has_collision)
+        if 1.2 / 120 > abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
             puck_EKF.update(np.array(data[i+1][0:3]))
-            EKF_res_state.append(puck_EKF.predict_state)
-            EKF_res_P.append(puck_EKF.P)
-            EKF_res_dynamic.append(puck_EKF.F)
-            EKF_res_collision.append(puck_EKF.has_collision)
+
         else:
             puck_EKF.state = puck_EKF.predict_state
-            EKF_res_state.append(puck_EKF.predict_state)
-            EKF_res_P.append(puck_EKF.P)
-            EKF_res_dynamic.append(puck_EKF.F)
-            EKF_res_collision.append(puck_EKF.has_collision)
+        #     EKF_res_state.append(puck_EKF.predict_state)
+        #     EKF_res_P.append(puck_EKF.P)
+        #     EKF_res_dynamic.append(puck_EKF.F)
+        #     EKF_res_collision.append(puck_EKF.has_collision)
     else:
         puck_EKF.state = np.array(
             [data[i][0], data[i][1], (data[i - 1][0] - data[i][0]) / (data[i - 1][3] - data[i][3]),
@@ -162,22 +163,22 @@ for m in smooth_res_state:
     smooth_res_x.insert(0, m[0])
     smooth_res_y.insert(0, m[1])
 plt.subplot(1, 3, 1)
-plt.plot(orgx[0], orgy[0], marker='d', color='r')
+plt.plot(orgx[1], orgy[1], marker='d', color='r')
 plt.scatter(orgx[1:], orgy[1:], color='r', label='Raw Data')
 plt.title('raw data')
 plt.legend()
 plt.subplot(1, 3, 2)
-plt.plot(orgx[4], orgy[4], marker='d', color='r')
+plt.plot(orgx[1], orgy[1], marker='d', color='r')
 plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
 plt.title('kalman smooth')
 plt.legend()
 plt.subplot(1, 3, 3)
-plt.plot(orgx[4], orgy[4], marker='d', color='r')
+plt.plot(orgx[1], orgy[1], marker='d', color='r')
 plt.scatter(resx, resy, color='g', label='EKF')
 plt.title('EKF')
 plt.legend()
 plt.show()
-plt.plot(orgx[4], orgy[4], marker='d', color='r')
+plt.plot(orgx[1], orgy[1], marker='d', color='r')
 plt.scatter(resx, resy, color='g', label='EKF')
 plt.scatter(orgx[4:], orgy[4:], color='r', label='Raw Data')
 plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
