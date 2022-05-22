@@ -8,7 +8,7 @@ import numpy as np
 params = [{'name': 'tableFriction', 'type': 'num', 'lb': 0, 'ub': 0.5},
           {'name': 'tableDamping', 'type': 'num', 'lb': 0, 'ub': 0.5},
           {'name': 'tableRestitution', 'type': 'num', 'lb': 0, 'ub': 0.9}]
-sample_points = 20
+sample_points = 50
 space = DesignSpace().parse(params)
 samp = space.sample(sample_points)
 samp_params = space.transform(samp)
@@ -82,22 +82,30 @@ def expectation(Nparams):
 
 def maximize(evaluation, Nparams):
     sort = evaluation.argsort()
+    # new_params = [
+    #     {'name': 'tableFriction', 'type': 'num', 'lb': min(Nparams[sort[-t]][0] for t in range(1, sample_points // 5)),
+    #      'ub': max(Nparams[sort[-t]][0] for t in range(1, sample_points // 5))},
+    #     {'name': 'tableDamping', 'type': 'num', 'lb': min(Nparams[sort[-t]][1] for t in range(1, sample_points // 5)),
+    #      'ub': max(Nparams[sort[-t]][1] for t in range(1, sample_points // 5))},
+    #     {'name': 'tableRestitution', 'type': 'num',
+    #      'lb': min(Nparams[sort[-t]][2] for t in range(1, sample_points // 5)),
+    #      'ub': max(Nparams[sort[-t]][2] for t in range(1, sample_points // 5))}]
     new_params = [
-        {'name': 'tableFriction', 'type': 'num', 'lb': min(Nparams[sort[-t]][0] for t in range(1, sample_points / 2)),
-         'ub': max(Nparams[sort[-t]][0] for t in range(1, sample_points / 2))},
-        {'name': 'tableDamping', 'type': 'num', 'lb': min(Nparams[sort[-t]][1] for t in range(1, sample_points / 2)),
-         'ub': max(Nparams[sort[-t]][1] for t in range(1, sample_points / 2))},
+        {'name': 'tableFriction', 'type': 'num', 'lb': min(Nparams[sort[-1]][0], Nparams[sort[-3]][0]),
+         'ub': max(Nparams[sort[-1]][0], Nparams[sort[-3]][0])},
+        {'name': 'tableDamping', 'type': 'num', 'lb': min(Nparams[sort[-1]][1], Nparams[sort[-3]][1]),
+         'ub': max(Nparams[sort[-1]][1], Nparams[sort[-3]][1])},
         {'name': 'tableRestitution', 'type': 'num',
-         'lb': min(Nparams[sort[-t]][2] for t in range(1, sample_points / 2)),
-         'ub': max(Nparams[sort[-1]][2] for t in range(1, sample_points / 2))}]
+         'lb': min(Nparams[sort[-1]][2], Nparams[sort[-3]][2]),
+         'ub': max(Nparams[sort[-1]][2], Nparams[sort[-3]][2])}]
     new_space = DesignSpace().parse(new_params)
     new_samp = new_space.sample(sample_points)
     new_samp_params = new_space.transform(new_samp)
     new_params = new_samp_params[0]
     new_params = new_params.__array__()
-    if abs(Nparams[sort[-1]][0] - Nparams[sort[-10]][0]) < 0.0001 and abs(
-            Nparams[sort[-1]][1] - Nparams[sort[-10]][1]) < 0.0001 and abs(
-        Nparams[sort[-1]][2] - Nparams[sort[-10]][2]) < 0.0001:
+    if abs(Nparams[sort[-1]][0] - Nparams[sort[-10]][0]) < 0.001 and abs(
+            Nparams[sort[-1]][1] - Nparams[sort[-10]][1]) < 0.001 and abs(
+        Nparams[sort[-1]][2] - Nparams[sort[-10]][2]) < 0.001:
         print(Nparams[sort[-1]][0], Nparams[sort[-1]][1], Nparams[sort[-1]][2])
         return new_params, True
     return new_params, False
