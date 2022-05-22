@@ -17,6 +17,8 @@ class air_hockey_EKF:
         self.predict_state = None
         self.F = None
         self.score = False
+        self.y = None
+        self.S = None
 
     def predict(self):
         self.P = self.system.F @ self.P @ self.system.F.T + self.Q
@@ -31,10 +33,10 @@ class air_hockey_EKF:
         # measurement residual
         H = np.zeros((3, 6))
         H[0][0] = H[1][1] = H[2][4] = 1
-        y = measure - np.array([self.state[0], self.state[1], self.state[4]])
-        S = H @ self.P @ H.T + self.R
-        K = self.P @ H.T @ lg.inv(S)
-        self.state = self.predict_state + K @ y
+        self.y = measure - np.array([self.state[0], self.state[1], self.state[4]])
+        self.S = H @ self.P @ H.T + self.R
+        K = self.P @ H.T @ lg.inv(self.S)
+        self.state = self.predict_state + K @ self.y
         self.P = (np.eye(6) - K @ H) @ self.P
 
 
