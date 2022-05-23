@@ -90,11 +90,11 @@ def expectation(Nparams):
 
 
 for i in range(30):
-    rec_x = hebo.suggest(n_suggestions=10)
+    rec_x = hebo.suggest(n_suggestions=15)
 
     hebo.observe(rec_x, obj(rec_x))
     min_idx = hebo.y.argmin()
     print(str(i) + ' y is ' + str(hebo.y.min()) + ' tableFriction ' + str(hebo.X.iloc[min_idx]['tableFriction']) +' tableDamping '+ str(
         hebo.X.iloc[min_idx]['tableDamping']) + ' tableRestitution ' + str(hebo.X.iloc[min_idx]['tableRestitution']))
-    plt.scatter(i, hebo.y.min())
+    plt.scatter(i, hebo.y.min(), color='b')
 plt.show()
