@@ -11,7 +11,6 @@ from hebo.optimizers.hebo import HEBO
 params = [{'name': 'tableFriction', 'type': 'num', 'lb': 0, 'ub': 0.5},
           {'name': 'tableDamping', 'type': 'num', 'lb': 0, 'ub': 0.5},
           {'name': 'tableRestitution', 'type': 'num', 'lb': 0, 'ub': 0.9}]
-sample_points = 6
 space = DesignSpace().parse(params)
 bo = BO(space)
 hebo = HEBO(space, rand_sample=5)
@@ -90,8 +89,8 @@ def expectation(Nparams):
     return evaluation
 
 
-for i in range(100):
-    rec_x = hebo.suggest(n_suggestions=5)
+for i in range(30):
+    rec_x = hebo.suggest(n_suggestions=10)
 
     hebo.observe(rec_x, obj(rec_x))
     min_idx = hebo.y.argmin()
