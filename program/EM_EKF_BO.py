@@ -70,6 +70,7 @@ def expectation(Nparams):
     u = 1 / 120
     # EKF start
     puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
+    num_evaluation = 0
     for j in range(1, len(data)):
         if not puck_EKF.score:
             puck_EKF.predict()
@@ -77,6 +78,7 @@ def expectation(Nparams):
                 puck_EKF.update(np.array(data[j + 1][0:3]))
                 evaluation += (
                         np.log10(np.linalg.det(puck_EKF.S)) + puck_EKF.y.T @ np.linalg.inv(puck_EKF.S) @ puck_EKF.y)
+                num_evaluation += 1
                 # evaluation[i] -= puck_EKF.y.T @ puck_EKF.y
             else:
                 puck_EKF.state = puck_EKF.predict_state
@@ -86,11 +88,11 @@ def expectation(Nparams):
                  (data[j - 1][1] - data[j][1]) / (data[j - 1][3] - data[j][3]), data[j][2],
                  (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])])
             puck_EKF.predict()
-    return evaluation
+    return evaluation/num_evaluation
 
 
 for i in range(30):
-    rec_x = hebo.suggest(n_suggestions=15)
+    rec_x = hebo.suggest(n_suggestions=5)
 
     hebo.observe(rec_x, obj(rec_x))
     min_idx = hebo.y.argmin()
