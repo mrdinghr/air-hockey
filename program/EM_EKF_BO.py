@@ -77,7 +77,7 @@ def expectation(Nparams):
             if j > 0 and 1.2 / 120 > abs(data[j][-1] - data[j - 1][-1]) > 0.8 / 120:
                 puck_EKF.update(np.array(data[j + 1][0:3]))
                 evaluation += (
-                        np.log10(np.linalg.det(puck_EKF.S)) + puck_EKF.y.T @ np.linalg.inv(puck_EKF.S) @ puck_EKF.y)
+                        np.log(np.linalg.det(puck_EKF.S)) + puck_EKF.y.T @ np.linalg.inv(puck_EKF.S) @ puck_EKF.y)
                 num_evaluation += 1
                 # evaluation[i] -= puck_EKF.y.T @ puck_EKF.y
             else:

@@ -4,7 +4,6 @@ import numpy as np
 import air_hockey_baseline
 from air_hockey_plot import trajectory_plot as trajectory
 from air_hockey_plot import table_plot
-
 table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
                                            restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
 system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
