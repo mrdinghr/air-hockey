@@ -3,7 +3,7 @@ import numpy as np
 import air_hockey_baseline
 import matplotlib.pyplot as plt
 from air_hockey_plot import table_plot
-
+from math import pi
 
 class air_hockey_EKF:
     def __init__(self, state, u, system, table, Q, R, P):
@@ -62,12 +62,8 @@ for i in range(1, len(pre_data)):
         continue
     data.append(pre_data[i])
 data = np.array(data)
-# orgx = []
-# orgy = []
 for i_data in data:
     i_data[0] += table.m_length / 2
-    # orgx.append(i_data[0])
-    # orgy.append(i_data[1])
 state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
             data[2][0] - data[1][0]) / (
                     data[2][3] - data[1][3]) + (data[3][0] - data[2][0]) / (
@@ -98,7 +94,13 @@ while j < length:
         resy.append(puck_EKF.predict_state[1])
         # check whether data is recorded at right time
         if (i-0.2) / 120 < abs(data[j+1][-1]-data[1][-1]) < (i+0.2) / 120:
-            puck_EKF.update(np.array(data[j + 1][0:3]))
+            if abs(data[j+1][2] - data[j][2]) > pi:
+                tmp = data[j+1][2]
+                data[j+1][2] += -np.sign(data[j+1][2])*pi + data[j][2]
+                puck_EKF.update(np.array(data[j + 1][0:3]))
+                data[j + 1][2] = tmp
+            else:
+                puck_EKF.update(np.array(data[j + 1][0:3]))
             j += 1
         else:
             if abs(data[j+1][-1]-data[1][-1]) < (i-0.2) / 120:

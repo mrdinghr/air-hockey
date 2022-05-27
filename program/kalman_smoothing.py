@@ -3,7 +3,7 @@ import numpy as np
 import air_hockey_baseline
 import matplotlib.pyplot as plt
 from air_hockey_plot import table_plot
-
+from math import pi
 
 class air_hockey_EKF:
     def __init__(self, state, u, system, table, Q, R, P):
@@ -98,7 +98,13 @@ while j < length:
         EKF_res_dynamic.append(puck_EKF.F)
         EKF_res_collision.append(puck_EKF.has_collision)
         if (i-0.2) / 120 < abs(data[j][-1]-data[0][-1]) < (i+0.2) / 120:
-            puck_EKF.update(np.array(data[j][0:3]))
+            if abs(data[j - 1][2] - data[j][2]) > pi:
+                tmp = data[j][2]
+                data[j][2] += -np.sign(data[j][2]) * pi + data[j - 1][2]
+                puck_EKF.update(np.array(data[j][0:3]))
+                data[j][2] = tmp
+            else:
+                puck_EKF.update(np.array(data[j][0:3]))
             j += 1
         else:
             if abs(data[j][-1]-data[0][-1]) < (i-0.2) / 120:
@@ -132,19 +138,21 @@ xp = np.zeros(6)
 for j in range(time - 2):
     if not EKF_res_score[-2 - j]:
         xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
-        if not EKF_res_collision[-j - 1]:
-            if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-                       EKF_res_state[-j - 2][3]) > 1e-6:
-                xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
-                        system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
-                                                                                                  2:4] / np.sqrt(
-                    EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-                    EKF_res_state[-j - 2][3]))
-            else:
-                xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
+        # if not EKF_res_collision[-j - 1]:
+        #     if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+        #                EKF_res_state[-j - 2][3]) > 1e-6:
+        #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
+        #                 system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
+        #                                                                                           2:4] / np.sqrt(
+        #             EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+        #             EKF_res_state[-j - 2][3]))
+        #     else:
+        #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
         pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
         c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ lg.inv(pp)
         xs = EKF_res_state[-j - 2] + c @ (xs - xp)
+        if abs(xs[4] - xp[4]) > pi:
+            xs[4] = -xs[4]
         smooth_res_state.append(xs)
     else:
         xs = EKF_res_state[-j - 2]
@@ -158,39 +166,58 @@ plt.scatter(EKF_res_state[:, 0], EKF_res_state[:, 1], color='b', label='EKF', s=
 plt.scatter(smooth_res_state[:, 0], smooth_res_state[:, 1], color='r', label='smooth', s=5)
 plt.legend()
 plt.show()
-plt.subplot(2, 4, 1)
+# plot x position
+plt.subplot(3, 4, 1)
 plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=5)
 plt.title('only EKF x position')
 plt.legend()
-plt.subplot(2, 4, 2)
+plt.subplot(3, 4, 2)
 plt.scatter(data[:, -1]-data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
 plt.title('only raw data x position')
 plt.legend()
-plt.subplot(2, 4, 3)
+plt.subplot(3, 4, 3)
 plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 0], color='r', label='smooth x position', s=5)
 plt.title('smooth x position')
 plt.legend()
-plt.subplot(2, 4, 4)
+plt.subplot(3, 4, 4)
 plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=5)
 plt.scatter(data[:, -1]-data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
 plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 0], color='r', label='smooth x position', s=5)
 plt.legend()
 # another line to plot y position
-plt.subplot(2, 4, 5)
+plt.subplot(3, 4, 5)
 plt.scatter(time_EKF, EKF_res_state[:, 1], color='b', label='EKF y position', s=5)
 plt.title('only EKF y position')
 plt.legend()
-plt.subplot(2, 4, 6)
+plt.subplot(3, 4, 6)
 plt.scatter(data[:, -1]-data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
 plt.title('only raw data y position')
 plt.legend()
-plt.subplot(2, 4, 7)
-plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 0], color='r', label='smooth y position', s=5)
-plt.title('smooth x position')
+plt.subplot(3, 4, 7)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 1], color='r', label='smooth y position', s=5)
+plt.title('smooth y position')
 plt.legend()
-plt.subplot(2, 4, 8)
+plt.subplot(3, 4, 8)
 plt.scatter(time_EKF, EKF_res_state[:, 1], color='b', label='EKF y position', s=5)
 plt.scatter(data[:, -1]-data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
 plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 1], color='r', label='smooth y position', s=5)
+plt.legend()
+# plot theta
+plt.subplot(3, 4, 10)
+plt.scatter(data[:, -1]-data[0][-1], data[:, 2], color='g', label='raw data theta', s=5)
+plt.title('only raw data  theta')
+plt.legend()
+plt.subplot(3, 4, 11)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 4], color='r', label='smooth theta', s=5)
+plt.title('smooth theta')
+plt.legend()
+plt.subplot(3, 4, 9)
+plt.scatter(time_EKF, EKF_res_state[:, 4], color='b', label='EKF theta', s=5)
+plt.title('only EKF theta')
+plt.legend()
+plt.subplot(3, 4, 12)
+plt.scatter(time_EKF, EKF_res_state[:, 4], color='b', label='EKF theta', s=5)
+plt.scatter(data[:, -1]-data[0][-1], data[:, 2], color='g', label='raw data theta', s=5)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 4], color='r', label='smooth theta', s=5)
 plt.legend()
 plt.show()
