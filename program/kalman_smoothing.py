@@ -32,7 +32,9 @@ class air_hockey_EKF:
         # measurement residual
         H = np.zeros((3, 6))
         H[0][0] = H[1][1] = H[2][4] = 1
-        y = measure - np.array([self.state[0], self.state[1], self.state[4]])
+        y = measure - np.array([self.predict_state[0], self.predict_state[1], self.predict_state[4]])
+        if abs(y[2]) > pi:
+            y[2] = y[2] - np.sign(measure[2])*2*pi
         S = H @ self.P @ H.T + self.R
         K = self.P @ H.T @ lg.inv(S)
         self.state = self.predict_state + K @ y
@@ -111,10 +113,13 @@ while j < length:
                 j += 1
             puck_EKF.state = puck_EKF.predict_state
     else:
+        if abs(data[j - 1][2] - data[j-2][2]) > pi:
+            rotation_velocity = (data[j-1][2] - np.sign(data[j-1][2])*pi) / (data[j-1][-1] - data[j - 2][-1])
+        else:
+            rotation_velocity = (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])
         puck_EKF.state = np.array(
             [data[j-1][0], data[j-1][1], (data[j - 1][0] - data[j-2][0]) / (data[j - 1][3] - data[j-2][3]),
-             (data[j - 1][1] - data[j-2][1]) / (data[j - 1][3] - data[j-2][3]), data[j-1][2],
-             (data[j - 1][2] - data[j-2][2]) / (data[j - 1][3] - data[j-2][3])])
+             (data[j - 1][1] - data[j-2][1]) / (data[j - 1][3] - data[j-2][3]), data[j-1][2], rotation_velocity])
         puck_EKF.predict()
         EKF_res_state.append(puck_EKF.predict_state)
         EKF_res_P.append(puck_EKF.P)
@@ -138,21 +143,21 @@ xp = np.zeros(6)
 for j in range(time - 2):
     if not EKF_res_score[-2 - j]:
         xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
-        # if not EKF_res_collision[-j - 1]:
-        #     if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-        #                EKF_res_state[-j - 2][3]) > 1e-6:
-        #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
-        #                 system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
-        #                                                                                           2:4] / np.sqrt(
-        #             EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-        #             EKF_res_state[-j - 2][3]))
-        #     else:
-        #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
+        if not EKF_res_collision[-j - 1]:
+            if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                       EKF_res_state[-j - 2][3]) > 1e-6:
+                xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
+                        system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
+                                                                                                  2:4] / np.sqrt(
+                    EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                    EKF_res_state[-j - 2][3]))
+            else:
+                xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
         pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
         c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ lg.inv(pp)
-        xs = EKF_res_state[-j - 2] + c @ (xs - xp)
         if abs(xs[4] - xp[4]) > pi:
-            xs[4] = -xs[4]
+            xp[4] = xp[4] - np.sign(xp[4])*2*pi
+        xs = EKF_res_state[-j - 2] + c @ (xs - xp)
         smooth_res_state.append(xs)
     else:
         xs = EKF_res_state[-j - 2]

@@ -34,6 +34,8 @@ class air_hockey_EKF:
         H = np.zeros((3, 6))
         H[0][0] = H[1][1] = H[2][4] = 1
         self.y = measure - np.array([self.state[0], self.state[1], self.state[4]])
+        if abs(self.y[2]) > pi:
+            self.y[2] = self.y[2] - np.sign(measure[2])*2*pi
         self.S = H @ self.P @ H.T + self.R
         K = self.P @ H.T @ lg.inv(self.S)
         self.state = self.predict_state + K @ self.y
@@ -107,10 +109,13 @@ while j < length:
                 j += 1
             puck_EKF.state = puck_EKF.predict_state
     else:
+        if abs(data[j - 1][2] - data[j][2]) > pi:
+            rotation_velocity = (data[j][2] - np.sign(data[j][2])*pi) / (data[j][-1] - data[j - 1][-1])
+        else:
+            rotation_velocity = (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])
         puck_EKF.state = np.array(
             [data[j][0], data[j][1], (data[j - 1][0] - data[j][0]) / (data[j - 1][3] - data[j][3]),
-             (data[j - 1][1] - data[j][1]) / (data[j - 1][3] - data[j][3]), data[j][2],
-             (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])])
+             (data[j - 1][1] - data[j][1]) / (data[j - 1][3] - data[j][3]), data[j][2], rotation_velocity])
         puck_EKF.predict()
         resx.append(puck_EKF.predict_state[0])
         resy.append(puck_EKF.predict_state[1])
