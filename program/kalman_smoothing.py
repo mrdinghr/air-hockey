@@ -60,12 +60,8 @@ for i in range(1, len(raw_data)):
     if abs(raw_data[i][0] - raw_data[i - 1][0]) < 0.005 and abs(raw_data[i][1] - raw_data[i - 1][1]) < 0.005:
         continue
     pre_data.append(raw_data[i])
-orgx = []
-orgy = []
 for i in pre_data:
     i[0] += table.m_length / 2
-    orgx.append(i[0])
-    orgy.append(i[1])
 state_dx = ((pre_data[1][0] - pre_data[0][0]) / (pre_data[1][3] - pre_data[0][3]) + (
             pre_data[2][0] - pre_data[1][0]) / (
                     pre_data[2][3] - pre_data[1][3]) + (pre_data[3][0] - pre_data[2][0]) / (
@@ -79,11 +75,7 @@ state_dtheta = ((pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0
                         pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
                             pre_data[3][3] - pre_data[2][3])) / 3
 state = np.array([pre_data[1][0], pre_data[1][1], state_dx, state_dy, pre_data[1][2], state_dtheta])
-# state = np.array([data[0][0], data[0][1], (data[1][0] - data[0][0]) / (data[1][3] - data[0][3]),
-#                   (data[1][1] - data[0][1]) / (data[1][3] - data[0][3]), data[0][2],
-#                   (data[1][2] - data[0][2]) / (data[1][3] - data[0][3])])
-data = pre_data[1:]
-
+data = np.array(pre_data[1:])
 u = 1 / 120
 puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
 EKF_res_state = []
@@ -91,7 +83,13 @@ EKF_res_P = []
 EKF_res_dynamic = []
 EKF_res_score = []
 EKF_res_collision = []
-for i in range(1, len(data)):
+i = 0
+j = 1
+length = len(data)
+time_EKF = []
+while j < length:
+    i += 1
+    time_EKF.append(i/120)
     if not puck_EKF.score:
         puck_EKF.predict()
         EKF_res_score.append(False)
@@ -99,26 +97,26 @@ for i in range(1, len(data)):
         EKF_res_P.append(puck_EKF.P)
         EKF_res_dynamic.append(puck_EKF.F)
         EKF_res_collision.append(puck_EKF.has_collision)
-        if 1.2 / 120 > abs(data[i][-1] - data[i - 1][-1]) > 0.8 / 120:
-            puck_EKF.update(np.array(data[i+1][0:3]))
-
+        if (i-0.2) / 120 < abs(data[j][-1]-data[0][-1]) < (i+0.2) / 120:
+            puck_EKF.update(np.array(data[j][0:3]))
+            j += 1
         else:
+            if abs(data[j][-1]-data[0][-1]) < (i-0.2) / 120:
+                j += 1
             puck_EKF.state = puck_EKF.predict_state
-        #     EKF_res_state.append(puck_EKF.predict_state)
-        #     EKF_res_P.append(puck_EKF.P)
-        #     EKF_res_dynamic.append(puck_EKF.F)
-        #     EKF_res_collision.append(puck_EKF.has_collision)
     else:
         puck_EKF.state = np.array(
-            [data[i][0], data[i][1], (data[i - 1][0] - data[i][0]) / (data[i - 1][3] - data[i][3]),
-             (data[i - 1][1] - data[i][1]) / (data[i - 1][3] - data[i][3]), data[i][2],
-             (data[i - 1][2] - data[i][2]) / (data[i - 1][3] - data[i][3])])
+            [data[j-1][0], data[j-1][1], (data[j - 1][0] - data[j-2][0]) / (data[j - 1][3] - data[j-2][3]),
+             (data[j - 1][1] - data[j-2][1]) / (data[j - 1][3] - data[j-2][3]), data[j-1][2],
+             (data[j - 1][2] - data[j-2][2]) / (data[j - 1][3] - data[j-2][3])])
         puck_EKF.predict()
         EKF_res_state.append(puck_EKF.predict_state)
         EKF_res_P.append(puck_EKF.P)
         EKF_res_dynamic.append(puck_EKF.F)
         EKF_res_score.append(True)
         EKF_res_collision.append(puck_EKF.has_collision)
+        j += 1
+EKF_res_state = np.array(EKF_res_state)
 '''
 Kalman Smoothing
 F： dynamic jacobian as in EKF
@@ -152,49 +150,47 @@ for j in range(time - 2):
         xs = EKF_res_state[-j - 2]
         xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
         smooth_res_state.append(xs)
-resx = []
-resy = []
-for t in EKF_res_state:
-    resx.append(t[0])
-    resy.append(t[1])
-smooth_res_x = []
-smooth_res_y = []
-for m in smooth_res_state:
-    smooth_res_x.insert(0, m[0])
-    smooth_res_y.insert(0, m[1])
-plt.subplot(1, 3, 1)
-plt.plot(orgx[1], orgy[1], marker='d', color='r')
-plt.scatter(orgx[1:], orgy[1:], color='r', label='Raw Data')
-plt.title('raw data')
-plt.legend()
-plt.subplot(1, 3, 2)
-plt.plot(orgx[1], orgy[1], marker='d', color='r')
-plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
-plt.title('kalman smooth')
-plt.legend()
-plt.subplot(1, 3, 3)
-plt.plot(orgx[1], orgy[1], marker='d', color='r')
-plt.scatter(resx, resy, color='g', label='EKF')
-plt.title('EKF')
+smooth_res_state = np.array(smooth_res_state)
+table_plot(table)
+plt.plot(EKF_res_state[0][0], EKF_res_state[0][1], marker='d', color='r')
+plt.scatter(data[:, 0], data[:, 1], color='g', label='raw data', s=5)
+plt.scatter(EKF_res_state[:, 0], EKF_res_state[:, 1], color='b', label='EKF', s=5)
+plt.scatter(smooth_res_state[:, 0], smooth_res_state[:, 1], color='r', label='smooth', s=5)
 plt.legend()
 plt.show()
-plt.plot(orgx[1], orgy[1], marker='d', color='r')
-plt.scatter(resx, resy, color='g', label='EKF')
-plt.scatter(orgx[4:], orgy[4:], color='r', label='Raw Data')
-plt.scatter(smooth_res_x, smooth_res_y, color='b', label='Kalman Smooth')
+plt.subplot(2, 4, 1)
+plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=5)
+plt.title('only EKF x position')
 plt.legend()
-plt.show()
-# next plot x y with time
-plt.subplot(1, 2, 1)
-plt.plot(orgx[4:], label='raw data')
-plt.plot(resx, label='EKF')
-plt.plot(smooth_res_x, label='kalman smooth')
+plt.subplot(2, 4, 2)
+plt.scatter(data[:, -1]-data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
+plt.title('only raw data x position')
 plt.legend()
-plt.title('x')
-plt.subplot(1, 2, 2)
-plt.plot(orgy[4:], label='raw data')
-plt.plot(resy, label='EKF')
-plt.plot(smooth_res_y, label='kalman smooth')
-plt.title('y')
+plt.subplot(2, 4, 3)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 0], color='r', label='smooth x position', s=5)
+plt.title('smooth x position')
+plt.legend()
+plt.subplot(2, 4, 4)
+plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=5)
+plt.scatter(data[:, -1]-data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 0], color='r', label='smooth x position', s=5)
+plt.legend()
+# another line to plot y position
+plt.subplot(2, 4, 5)
+plt.scatter(time_EKF, EKF_res_state[:, 1], color='b', label='EKF y position', s=5)
+plt.title('only EKF y position')
+plt.legend()
+plt.subplot(2, 4, 6)
+plt.scatter(data[:, -1]-data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
+plt.title('only raw data y position')
+plt.legend()
+plt.subplot(2, 4, 7)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 0], color='r', label='smooth y position', s=5)
+plt.title('smooth x position')
+plt.legend()
+plt.subplot(2, 4, 8)
+plt.scatter(time_EKF, EKF_res_state[:, 1], color='b', label='EKF y position', s=5)
+plt.scatter(data[:, -1]-data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 1], color='r', label='smooth y position', s=5)
 plt.legend()
 plt.show()

@@ -55,13 +55,19 @@ Q[2][2] = Q[3][3] = 3e-7
 Q[4][4] = 1.0e-2
 Q[5][5] = 1.0e-1
 P = np.eye(6) * 0.01
-data = np.load("example_data.npy")
-orgx = []
-orgy = []
-for i in data:
-    i[0] += table.m_length / 2
-    orgx.append(i[0])
-    orgy.append(i[1])
+pre_data = np.load("example_data.npy")
+data = []
+for i in range(1, len(pre_data)):
+    if abs(pre_data[i][0] - pre_data[i - 1][0]) < 0.005 and abs(pre_data[i][1] - pre_data[i - 1][1]) < 0.005:
+        continue
+    data.append(pre_data[i])
+data = np.array(data)
+# orgx = []
+# orgy = []
+for i_data in data:
+    i_data[0] += table.m_length / 2
+    # orgx.append(i_data[0])
+    # orgy.append(i_data[1])
 state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
             data[2][0] - data[1][0]) / (
                     data[2][3] - data[1][3]) + (data[3][0] - data[2][0]) / (
@@ -78,33 +84,39 @@ state = np.array([data[1][0], data[1][1], state_dx, state_dy, data[1][2], state_
 puck_EKF = air_hockey_EKF(state=state, u=1 / 120, system=system, table=table, Q=Q, R=R, P=P)
 resx = [state[0]]
 resy = [state[1]]
-start_t = data[0][-1]
 time_EKF = [1/120]
 j = 1
-for i in range(1, len(data) - 1):
-    time_EKF.append((i+1) / 120)
+length = len(data)-1
+i = 0
+# for i in range(1, length):
+while j < length:
+    i += 1
+    time_EKF.append((i + 1) / 120)
     if not puck_EKF.score:
         puck_EKF.predict()
         resx.append(puck_EKF.predict_state[0])
         resy.append(puck_EKF.predict_state[1])
-        if (i-0.2) / 120 < abs(data[j][-1]-data[0][-1]) < (i+0.2) / 120:
+        # check whether data is recorded at right time
+        if (i-0.2) / 120 < abs(data[j+1][-1]-data[1][-1]) < (i+0.2) / 120:
             puck_EKF.update(np.array(data[j + 1][0:3]))
             j += 1
         else:
+            if abs(data[j+1][-1]-data[1][-1]) < (i-0.2) / 120:
+                j += 1
             puck_EKF.state = puck_EKF.predict_state
     else:
         puck_EKF.state = np.array(
-            [data[i][0], data[i][1], (data[i - 1][0] - data[i][0]) / (data[i - 1][3] - data[i][3]),
-             (data[i - 1][1] - data[i][1]) / (data[i - 1][3] - data[i][3]), data[i][2],
-             (data[i - 1][2] - data[i][2]) / (data[i - 1][3] - data[i][3])])
+            [data[j][0], data[j][1], (data[j - 1][0] - data[j][0]) / (data[j - 1][3] - data[j][3]),
+             (data[j - 1][1] - data[j][1]) / (data[j - 1][3] - data[j][3]), data[j][2],
+             (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])])
         puck_EKF.predict()
         resx.append(puck_EKF.predict_state[0])
         resy.append(puck_EKF.predict_state[1])
         j += 1
 table_plot(table)
 plt.plot(resx[0], resy[0], marker='d', color='r')
-plt.plot(data[1:, 0], data[1:, 1], color='g', label='raw data')
-plt.plot(resx, resy, color='b', label='EKF')
+plt.scatter(data[1:, 0], data[1:, 1], color='g', label='raw data', s=5)
+plt.scatter(resx, resy, color='b', label='EKF', s=5)
 plt.legend()
 plt.show()
 plt.subplot(2, 3, 1)
@@ -112,12 +124,12 @@ plt.scatter(time_EKF, resx, color='b', label='EKF x position', s=5)
 plt.title('only EKF x position')
 plt.legend()
 plt.subplot(2, 3, 2)
-plt.scatter(data[1:, -1], data[1:, 0], color='g', label='raw data x position', s=5)
+plt.scatter(data[1:, -1]-data[0][-1], data[1:, 0], color='g', label='raw data x position', s=5)
 plt.title('only raw data x position')
 plt.legend()
 plt.subplot(2, 3, 3)
 plt.scatter(time_EKF, resx, color='b', label='EKF x position', s=5)
-plt.scatter(data[1:, -1], data[1:, 0], color='g', label='raw data x position', s=5)
+plt.scatter(data[1:, -1]-data[0][-1], data[1:, 0], color='g', label='raw data x position', s=5)
 plt.title('EKF vs raw data x position')
 plt.legend()
 plt.subplot(2, 3, 4)
@@ -125,12 +137,12 @@ plt.scatter(time_EKF, resy, color='b', label='EKF y position', s=5)
 plt.title('only EKF y position')
 plt.legend()
 plt.subplot(2, 3, 5)
-plt.scatter(data[1:, -1], data[1:, 1], color='g', label='raw data y position', s=5)
+plt.scatter(data[1:, -1]-data[0][-1], data[1:, 1], color='g', label='raw data y position', s=5)
 plt.title('only raw data y position')
 plt.legend()
 plt.subplot(2, 3, 6)
 plt.scatter(time_EKF, resy, color='b', label='EKF y position', s=5)
-plt.scatter(data[1:, -1], data[1:, 1], color='g', label='raw data y position', s=5)
+plt.scatter(data[1:, -1]-data[0][-1], data[1:, 1], color='g', label='raw data y position', s=5)
 plt.title('EKF vs raw data y position')
 plt.legend()
 plt.show()
