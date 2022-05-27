@@ -158,6 +158,7 @@ for j in range(time - 2):
         xs = EKF_res_state[-j - 2]
         xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
         smooth_res_state.append(xs)
+EKF_res_velocity = np.zeros((len(EKF_res_state)-1, 3))
 smooth_res_state = np.array(smooth_res_state)
 table_plot(table)
 plt.plot(EKF_res_state[0][0], EKF_res_state[0][1], marker='d', color='r')
@@ -166,6 +167,17 @@ plt.scatter(EKF_res_state[:, 0], EKF_res_state[:, 1], color='b', label='EKF', s=
 plt.scatter(smooth_res_state[:, 0], smooth_res_state[:, 1], color='r', label='smooth', s=5)
 plt.legend()
 plt.show()
+# calculate raw data velocity
+data_x_velocity = []
+data_y_velocity = []
+data_theta_velocity = []
+for i in range(1, len(pre_data)):
+    data_x_velocity.append((pre_data[i][0]-pre_data[i-1][0])/(pre_data[i][-1]-pre_data[i-1][-1]))
+    data_y_velocity.append((pre_data[i][1] - pre_data[i - 1][1]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+    if abs(pre_data[i][2]-pre_data[i-1][2]) > pi:
+        data_theta_velocity.append((pre_data[i][2] - np.sign(pre_data[i][2])*pi) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+    else:
+        data_theta_velocity.append((pre_data[i][2] - pre_data[i - 1][2]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
 # plot x position
 plt.subplot(3, 4, 1)
 plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=5)
@@ -221,3 +233,59 @@ plt.scatter(data[:, -1]-data[0][-1], data[:, 2], color='g', label='raw data thet
 plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 4], color='r', label='smooth theta', s=5)
 plt.legend()
 plt.show()
+# x velocity
+plt.subplot(3, 4, 1)
+plt.scatter(time_EKF, EKF_res_state[:, 2], color='b', label='EKF x velocity', s=5)
+plt.title('EKF x velocity')
+plt.legend()
+plt.subplot(3, 4, 2)
+plt.scatter(data[:, -1]-data[0][-1], data_x_velocity, color='g', label='raw data x velocity', s=5)
+plt.title('raw data x velocity')
+plt.legend()
+plt.subplot(3, 4, 3)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 2], color='r', label='smooth x velocity', s=5)
+plt.title('smooth x velocity')
+plt.legend()
+plt.subplot(3, 4, 4)
+plt.scatter(time_EKF, EKF_res_state[:, 2], color='b', label='EKF x velocity', s=5)
+plt.scatter(data[:, -1]-data[0][-1], data_x_velocity, color='g', label='raw data x velocity', s=5)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 2], color='r', label='smooth x velocity', s=5)
+plt.legend()
+# y velocity
+plt.subplot(3, 4, 5)
+plt.scatter(time_EKF, EKF_res_state[:, 3], color='b', label='EKF y velocity', s=5)
+plt.title('EKF y velocity')
+plt.legend()
+plt.subplot(3, 4, 6)
+plt.scatter(data[:, -1]-data[0][-1], data_y_velocity, color='g', label='raw data y velocity', s=5)
+plt.title('raw data y velocity')
+plt.legend()
+plt.subplot(3, 4, 7)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 3], color='r', label='smooth y velocity', s=5)
+plt.title('smooth y velocity')
+plt.legend()
+plt.subplot(3, 4, 8)
+plt.scatter(time_EKF, EKF_res_state[:, 3], color='b', label='EKF x velocity', s=5)
+plt.scatter(data[:, -1]-data[0][-1], data_y_velocity, color='g', label='raw data x velocity', s=5)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 3], color='r', label='smooth x velocity', s=5)
+plt.legend()
+# rotation velocity
+plt.subplot(3, 4, 9)
+plt.scatter(time_EKF, EKF_res_state[:, 5], color='b', label='EKF rotation velocity', s=5)
+plt.title('EKF rotation velocity')
+plt.legend()
+plt.subplot(3, 4, 10)
+plt.scatter(data[:, -1]-data[0][-1], data_theta_velocity, color='g', label='raw data rotation velocity', s=5)
+plt.title('raw data rotation velocity')
+plt.legend()
+plt.subplot(3, 4, 11)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 5], color='r', label='smooth rotation velocity', s=5)
+plt.title('smooth rotation velocity')
+plt.legend()
+plt.subplot(3, 4, 12)
+plt.scatter(time_EKF, EKF_res_state[:, 5], color='b', label='EKF x velocity', s=5)
+plt.scatter(data[:, -1]-data[0][-1], data_theta_velocity, color='g', label='raw data x velocity', s=5)
+plt.scatter(time_EKF[1:], smooth_res_state[-1::-1, 5], color='r', label='smooth x velocity', s=5)
+plt.legend()
+plt.show()
+
