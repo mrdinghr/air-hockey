@@ -160,6 +160,7 @@ for j in range(time - 1):
             xp[4] = xp[4] - np.sign(xp[4]) * 2 * pi
         if xs[5] * xp[5] < 0:
             xs[5] = -xs[5]
+            # smooth_res_state[-1][5] *= -1
         xs = EKF_res_state[-j - 2] + c @ (xs - xp)
         smooth_res_state.append(xs)
     else:
