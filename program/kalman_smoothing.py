@@ -55,7 +55,7 @@ Q = np.zeros((6, 6))
 Q[0][0] = Q[1][1] = 2e-10
 Q[2][2] = Q[3][3] = 3e-7
 Q[4][4] = 1.0e-2
-Q[5][5] = 1.0e-1
+Q[5][5] = 3
 P = np.eye(6) * 0.01
 raw_data = np.load("example_data.npy")
 pre_data = []
@@ -141,7 +141,10 @@ smooth_res_state = [EKF_res_state[-1]]
 xs = EKF_res_state[-1]
 time = np.shape(EKF_res_state)[0]
 xp = np.zeros(6)
+res = []
+ress = []
 for j in range(time - 1):
+    ress.append(EKF_res_state[-j - 1] - EKF_res_state[-j - 2])
     if not EKF_res_score[-2 - j]:
         xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
         if not EKF_res_collision[-j - 1]:
@@ -158,15 +161,27 @@ for j in range(time - 1):
         c = EKF_res_P[-j - 1] @ EKF_res_dynamic[-j - 1].T @ lg.inv(pp)
         if abs(xs[4] - xp[4]) > pi:
             xp[4] = xp[4] - np.sign(xp[4]) * 2 * pi
-        if xs[5] * xp[5] < 0:
-            xs[5] = -xs[5]
+        # if xs[5] * xp[5] < 0:
+        #     xs[5] = -xs[5]
             # smooth_res_state[-1][5] *= -1
+        res.append(xs-xp)
         xs = EKF_res_state[-j - 2] + c @ (xs - xp)
         smooth_res_state.append(xs)
     else:
         xs = EKF_res_state[-j - 2]
         xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
+        res.append(xs-xp)
         smooth_res_state.append(xs)
+res = np.array(res)
+ress = np.array(ress)
+# plt.plot(res[:, 0], label='0')
+# plt.plot(res[:, 1], label='1')
+# plt.plot(res[:, 2], label='2')
+# plt.plot(res[:, 3], label='3')
+plt.figure()
+plt.scatter(time_EKF[1:], res[:, 4], label='smooth', s=5)
+plt.scatter(time_EKF[1:], ress[:, 4], label='EKF', s=5)
+plt.legend()
 smooth_res_state = np.array(smooth_res_state)
 table_plot(table)
 plt.plot(EKF_res_state[0][0], EKF_res_state[0][1], marker='d', color='r')
@@ -174,7 +189,7 @@ plt.scatter(data[:, 0], data[:, 1], color='g', label='raw data', s=5)
 plt.scatter(EKF_res_state[:, 0], EKF_res_state[:, 1], color='b', label='EKF', s=5)
 plt.scatter(smooth_res_state[:, 0], smooth_res_state[:, 1], color='r', label='smooth', s=5)
 plt.legend()
-plt.show()
+# plt.show()
 # calculate raw data velocity
 data_x_velocity = []
 data_y_velocity = []
@@ -241,7 +256,8 @@ plt.scatter(time_EKF, EKF_res_state[:, 4], color='b', label='EKF theta', s=5)
 plt.scatter(data[:, -1] - data[0][-1], data[:, 2], color='g', label='raw data theta', s=5)
 plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 4], color='r', label='smooth theta', s=5)
 plt.legend()
-plt.show()
+plt.figure()
+# plt.show()
 # x velocity
 plt.subplot(3, 4, 1)
 plt.scatter(time_EKF, EKF_res_state[:, 2], color='b', label='EKF x velocity', s=5)
