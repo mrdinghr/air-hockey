@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from air_hockey_plot import table_plot
 from math import pi
 
+
 class air_hockey_EKF:
     def __init__(self, state, u, system, table, Q, R, P):
         self.state = state

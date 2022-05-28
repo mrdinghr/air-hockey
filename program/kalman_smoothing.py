@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from air_hockey_plot import table_plot
 from math import pi
 
+
 class air_hockey_EKF:
     def __init__(self, state, u, system, table, Q, R, P):
         self.state = state
@@ -34,7 +35,7 @@ class air_hockey_EKF:
         H[0][0] = H[1][1] = H[2][4] = 1
         y = measure - np.array([self.predict_state[0], self.predict_state[1], self.predict_state[4]])
         if abs(y[2]) > pi:
-            y[2] = y[2] - np.sign(measure[2])*2*pi
+            y[2] = y[2] - np.sign(measure[2]) * 2 * pi
         S = H @ self.P @ H.T + self.R
         K = self.P @ H.T @ lg.inv(S)
         self.state = self.predict_state + K @ y
@@ -65,17 +66,17 @@ for i in range(1, len(raw_data)):
 for i in pre_data:
     i[0] += table.m_length / 2
 state_dx = ((pre_data[1][0] - pre_data[0][0]) / (pre_data[1][3] - pre_data[0][3]) + (
-            pre_data[2][0] - pre_data[1][0]) / (
+        pre_data[2][0] - pre_data[1][0]) / (
                     pre_data[2][3] - pre_data[1][3]) + (pre_data[3][0] - pre_data[2][0]) / (
-                        pre_data[3][3] - pre_data[2][3])) / 3
+                    pre_data[3][3] - pre_data[2][3])) / 3
 state_dy = ((pre_data[1][1] - pre_data[0][1]) / (pre_data[1][3] - pre_data[0][3]) + (
-            pre_data[2][1] - pre_data[1][1]) / (
+        pre_data[2][1] - pre_data[1][1]) / (
                     pre_data[2][3] - pre_data[1][3]) + (pre_data[3][1] - pre_data[2][1]) / (
-                        pre_data[3][3] - pre_data[2][3])) / 3
+                    pre_data[3][3] - pre_data[2][3])) / 3
 state_dtheta = ((pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0][3]) + (
-            pre_data[2][2] - pre_data[1][2]) / (
+        pre_data[2][2] - pre_data[1][2]) / (
                         pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
-                            pre_data[3][3] - pre_data[2][3])) / 3
+                        pre_data[3][3] - pre_data[2][3])) / 3
 state = np.array([pre_data[1][0], pre_data[1][1], state_dx, state_dy, pre_data[1][2], state_dtheta])
 data = np.array(pre_data[1:])
 u = 1 / 120
@@ -91,7 +92,7 @@ length = len(data)
 time_EKF = []
 while j < length:
     i += 1
-    time_EKF.append(i/120)
+    time_EKF.append(i / 120)
     if not puck_EKF.score:
         puck_EKF.predict()
         EKF_res_score.append(False)
@@ -99,7 +100,7 @@ while j < length:
         EKF_res_P.append(puck_EKF.P)
         EKF_res_dynamic.append(puck_EKF.F)
         EKF_res_collision.append(puck_EKF.has_collision)
-        if (i-0.2) / 120 < abs(data[j][-1]-data[0][-1]) < (i+0.2) / 120:
+        if (i - 0.2) / 120 < abs(data[j][-1] - data[0][-1]) < (i + 0.2) / 120:
             if abs(data[j - 1][2] - data[j][2]) > pi:
                 tmp = data[j][2]
                 data[j][2] += -np.sign(data[j][2]) * pi + data[j - 1][2]
@@ -109,17 +110,17 @@ while j < length:
                 puck_EKF.update(np.array(data[j][0:3]))
             j += 1
         else:
-            if abs(data[j][-1]-data[0][-1]) < (i-0.2) / 120:
+            if abs(data[j][-1] - data[0][-1]) <= (i - 0.2) / 120:
                 j += 1
             puck_EKF.state = puck_EKF.predict_state
     else:
-        if abs(data[j - 1][2] - data[j-2][2]) > pi:
-            rotation_velocity = (data[j-1][2] - np.sign(data[j-1][2])*pi) / (data[j-1][-1] - data[j - 2][-1])
+        if abs(data[j - 1][2] - data[j - 2][2]) > pi:
+            rotation_velocity = (data[j - 1][2] - np.sign(data[j - 1][2]) * pi) / (data[j - 1][-1] - data[j - 2][-1])
         else:
-            rotation_velocity = (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])
+            rotation_velocity = (data[j - 1][2] - data[j-2][2]) / (data[j - 1][3] - data[j-2][3])
         puck_EKF.state = np.array(
-            [data[j-1][0], data[j-1][1], (data[j - 1][0] - data[j-2][0]) / (data[j - 1][3] - data[j-2][3]),
-             (data[j - 1][1] - data[j-2][1]) / (data[j - 1][3] - data[j-2][3]), data[j-1][2], rotation_velocity])
+            [data[j - 1][0], data[j - 1][1], (data[j - 1][0] - data[j - 2][0]) / (data[j - 1][3] - data[j - 2][3]),
+             (data[j - 1][1] - data[j - 2][1]) / (data[j - 1][3] - data[j - 2][3]), data[j - 1][2], rotation_velocity])
         puck_EKF.predict()
         EKF_res_state.append(puck_EKF.predict_state)
         EKF_res_P.append(puck_EKF.P)
@@ -154,16 +155,17 @@ for j in range(time - 1):
             else:
                 xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
         pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
-        c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ lg.inv(pp)
+        c = EKF_res_P[-j - 1] @ EKF_res_dynamic[-j - 1].T @ lg.inv(pp)
         if abs(xs[4] - xp[4]) > pi:
-            xp[4] = xp[4] - np.sign(xp[4])*2*pi
+            xp[4] = xp[4] - np.sign(xp[4]) * 2 * pi
+        if xs[5] * xp[5] < 0:
+            xs[5] = -xs[5]
         xs = EKF_res_state[-j - 2] + c @ (xs - xp)
         smooth_res_state.append(xs)
     else:
         xs = EKF_res_state[-j - 2]
         xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
         smooth_res_state.append(xs)
-EKF_res_velocity = np.zeros((len(EKF_res_state)-1, 3))
 smooth_res_state = np.array(smooth_res_state)
 table_plot(table)
 plt.plot(EKF_res_state[0][0], EKF_res_state[0][1], marker='d', color='r')
@@ -177,10 +179,11 @@ data_x_velocity = []
 data_y_velocity = []
 data_theta_velocity = []
 for i in range(1, len(pre_data)):
-    data_x_velocity.append((pre_data[i][0]-pre_data[i-1][0])/(pre_data[i][-1]-pre_data[i-1][-1]))
+    data_x_velocity.append((pre_data[i][0] - pre_data[i - 1][0]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
     data_y_velocity.append((pre_data[i][1] - pre_data[i - 1][1]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
-    if abs(pre_data[i][2]-pre_data[i-1][2]) > pi:
-        data_theta_velocity.append((pre_data[i][2] - np.sign(pre_data[i][2])*pi) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+    if abs(pre_data[i][2] - pre_data[i - 1][2]) > pi:
+        data_theta_velocity.append(
+            (pre_data[i][2] - np.sign(pre_data[i][2]) * pi) / (pre_data[i][-1] - pre_data[i - 1][-1]))
     else:
         data_theta_velocity.append((pre_data[i][2] - pre_data[i - 1][2]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
 # plot x position
@@ -189,7 +192,7 @@ plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=
 plt.title('only EKF x position')
 plt.legend()
 plt.subplot(3, 4, 2)
-plt.scatter(data[:, -1]-data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
 plt.title('only raw data x position')
 plt.legend()
 plt.subplot(3, 4, 3)
@@ -198,7 +201,7 @@ plt.title('smooth x position')
 plt.legend()
 plt.subplot(3, 4, 4)
 plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=5)
-plt.scatter(data[:, -1]-data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data[:, 0], color='g', label='raw data x position', s=5)
 plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 0], color='r', label='smooth x position', s=5)
 plt.legend()
 # another line to plot y position
@@ -207,7 +210,7 @@ plt.scatter(time_EKF, EKF_res_state[:, 1], color='b', label='EKF y position', s=
 plt.title('only EKF y position')
 plt.legend()
 plt.subplot(3, 4, 6)
-plt.scatter(data[:, -1]-data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
 plt.title('only raw data y position')
 plt.legend()
 plt.subplot(3, 4, 7)
@@ -216,12 +219,12 @@ plt.title('smooth y position')
 plt.legend()
 plt.subplot(3, 4, 8)
 plt.scatter(time_EKF, EKF_res_state[:, 1], color='b', label='EKF y position', s=5)
-plt.scatter(data[:, -1]-data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data[:, 1], color='g', label='raw data y position', s=5)
 plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 1], color='r', label='smooth y position', s=5)
 plt.legend()
 # plot theta
 plt.subplot(3, 4, 10)
-plt.scatter(data[:, -1]-data[0][-1], data[:, 2], color='g', label='raw data theta', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data[:, 2], color='g', label='raw data theta', s=5)
 plt.title('only raw data  theta')
 plt.legend()
 plt.subplot(3, 4, 11)
@@ -234,7 +237,7 @@ plt.title('only EKF theta')
 plt.legend()
 plt.subplot(3, 4, 12)
 plt.scatter(time_EKF, EKF_res_state[:, 4], color='b', label='EKF theta', s=5)
-plt.scatter(data[:, -1]-data[0][-1], data[:, 2], color='g', label='raw data theta', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data[:, 2], color='g', label='raw data theta', s=5)
 plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 4], color='r', label='smooth theta', s=5)
 plt.legend()
 plt.show()
@@ -244,7 +247,7 @@ plt.scatter(time_EKF, EKF_res_state[:, 2], color='b', label='EKF x velocity', s=
 plt.title('EKF x velocity')
 plt.legend()
 plt.subplot(3, 4, 2)
-plt.scatter(data[:, -1]-data[0][-1], data_x_velocity, color='g', label='raw data x velocity', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data_x_velocity, color='g', label='raw data x velocity', s=5)
 plt.title('raw data x velocity')
 plt.legend()
 plt.subplot(3, 4, 3)
@@ -253,7 +256,7 @@ plt.title('smooth x velocity')
 plt.legend()
 plt.subplot(3, 4, 4)
 plt.scatter(time_EKF, EKF_res_state[:, 2], color='b', label='EKF x velocity', s=5)
-plt.scatter(data[:, -1]-data[0][-1], data_x_velocity, color='g', label='raw data x velocity', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data_x_velocity, color='g', label='raw data x velocity', s=5)
 plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 2], color='r', label='smooth x velocity', s=5)
 plt.legend()
 # y velocity
@@ -262,7 +265,7 @@ plt.scatter(time_EKF, EKF_res_state[:, 3], color='b', label='EKF y velocity', s=
 plt.title('EKF y velocity')
 plt.legend()
 plt.subplot(3, 4, 6)
-plt.scatter(data[:, -1]-data[0][-1], data_y_velocity, color='g', label='raw data y velocity', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data_y_velocity, color='g', label='raw data y velocity', s=5)
 plt.title('raw data y velocity')
 plt.legend()
 plt.subplot(3, 4, 7)
@@ -271,7 +274,7 @@ plt.title('smooth y velocity')
 plt.legend()
 plt.subplot(3, 4, 8)
 plt.scatter(time_EKF, EKF_res_state[:, 3], color='b', label='EKF x velocity', s=5)
-plt.scatter(data[:, -1]-data[0][-1], data_y_velocity, color='g', label='raw data x velocity', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data_y_velocity, color='g', label='raw data x velocity', s=5)
 plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 3], color='r', label='smooth x velocity', s=5)
 plt.legend()
 # rotation velocity
@@ -280,7 +283,7 @@ plt.scatter(time_EKF, EKF_res_state[:, 5], color='b', label='EKF rotation veloci
 plt.title('EKF rotation velocity')
 plt.legend()
 plt.subplot(3, 4, 10)
-plt.scatter(data[:, -1]-data[0][-1], data_theta_velocity, color='g', label='raw data rotation velocity', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data_theta_velocity, color='g', label='raw data rotation velocity', s=5)
 plt.title('raw data rotation velocity')
 plt.legend()
 plt.subplot(3, 4, 11)
@@ -289,8 +292,7 @@ plt.title('smooth rotation velocity')
 plt.legend()
 plt.subplot(3, 4, 12)
 plt.scatter(time_EKF, EKF_res_state[:, 5], color='b', label='EKF x velocity', s=5)
-plt.scatter(data[:, -1]-data[0][-1], data_theta_velocity, color='g', label='raw data x velocity', s=5)
+plt.scatter(data[:, -1] - data[0][-1], data_theta_velocity, color='g', label='raw data x velocity', s=5)
 plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 5], color='r', label='smooth x velocity', s=5)
 plt.legend()
 plt.show()
-
