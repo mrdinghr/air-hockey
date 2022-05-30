@@ -35,12 +35,12 @@ class air_hockey_EKF:
         # measurement residual
         H = np.zeros((3, 6))
         H[0][0] = H[1][1] = H[2][4] = 1
-        y = measure - np.array([self.predict_state[0], self.predict_state[1], self.predict_state[4]])
-        if abs(y[2]) > pi:
-            y[2] = y[2] - np.sign(measure[2]) * 2 * pi
-        S = H @ self.P @ H.T + self.R
-        K = self.P @ H.T @ lg.inv(S)
-        self.state = self.predict_state + K @ y
+        self.y = measure - np.array([self.predict_state[0], self.predict_state[1], self.predict_state[4]])
+        if abs(self.y[2]) > pi:
+            self.y[2] = self.y[2] - np.sign(measure[2]) * 2 * pi
+        self.S = H @ self.P @ H.T + self.R
+        K = self.P @ H.T @ lg.inv(self.S)
+        self.state = self.predict_state + K @ self.y
         self.P = (np.eye(6) - K @ H) @ self.P
 
 

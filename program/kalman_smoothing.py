@@ -112,14 +112,16 @@ def kalman_smooth(raw_data, system, table):
     num_evaluation = 0
     i = 0
     for j in range(time - 1):
-        if EKF_res_update[-1 - j]:
-            i += 1
-            innovation = data[-i, 0:3] - np.array([xs[0], xs[1], xs[4]])
-            innovation_covariance = puck_EKF.H@ps@puck_EKF.H.T + R
-            sign, logdet = np.linalg.slogdet(innovation_covariance)
-            num_evaluation += 1
-            evaluation += (sign*np.exp(logdet) + innovation.T @ np.linalg.inv(innovation_covariance) @ innovation)
         if not EKF_res_score[-2 - j]:
+            if EKF_res_update[-1 - j]:
+                i += 1
+                innovation = data[-i, 0:3] - np.array([xs[0], xs[1], xs[4]])
+                if xs[4] * data[-i, 2] < 0:
+                    innovation[2] = 2 * pi + np.sign(xs[4]) * (data[-i, 2] - xs[4])
+                innovation_covariance = puck_EKF.H @ ps @ puck_EKF.H.T + R
+                sign, logdet = np.linalg.slogdet(innovation_covariance)
+                num_evaluation += 1
+                evaluation += (sign * np.exp(logdet) + innovation.T @ np.linalg.inv(innovation_covariance) @ innovation)
             xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
             if not EKF_res_collision[-j - 1]:
                 if np.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *

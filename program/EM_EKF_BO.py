@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from hebo.optimizers.bo import BO
 from hebo.optimizers.hebo import HEBO
+from math import pi
 
 params = [{'name': 'tableFriction', 'type': 'num', 'lb': 0, 'ub': 0.5},
           {'name': 'tableDamping', 'type': 'num', 'lb': 0, 'ub': 0.5},
@@ -64,29 +65,47 @@ def expectation(Nparams):
                             pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
                             pre_data[3][3] - pre_data[2][3])) / 3
     state = np.array([pre_data[1][0], pre_data[1][1], state_dx, state_dy, pre_data[1][2], state_dtheta])
-    data = pre_data[1:]
+    data = np.array(pre_data[1:])
     u = 1 / 120
     # EKF start
     puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
     num_evaluation = 0  # record the update time to normalize
     evaluation = 0  # calculate log_Ly_theta
-    for j in range(1, len(data)):
+    j = 1
+    i = 0
+    while j < len(data):
+        i += 1
         if not puck_EKF.score:
             puck_EKF.predict()
-            if j > 0 and 1.2 / 120 > abs(data[j][-1] - data[j - 1][-1]) > 0.8 / 120:
-                puck_EKF.update(np.array(data[j + 1][0:3]))
+            if (i - 0.2) / 120 < abs(data[j][-1] - data[0][-1]) < (i + 0.2) / 120:
+                if abs(data[j - 1][2] - data[j][2]) > pi:
+                    tmp = data[j][2]
+                    data[j][2] += -np.sign(data[j][2]) * pi + data[j - 1][2]
+                    puck_EKF.update(np.array(data[j][0:3]))
+                    data[j][2] = tmp
+                else:
+                    puck_EKF.update(np.array(data[j][0:3]))
+                j += 1
                 sign, logdet = np.linalg.slogdet(puck_EKF.S)
                 evaluation += (sign*np.exp(logdet) + puck_EKF.y.T @ np.linalg.inv(puck_EKF.S) @ puck_EKF.y)
                 num_evaluation += 1
-                # evaluation[i] -= puck_EKF.y.T @ puck_EKF.y
+
             else:
+                if abs(data[j][-1] - data[0][-1]) <= (i - 0.2) / 120:
+                    j += 1
                 puck_EKF.state = puck_EKF.predict_state
         else:
+            if abs(data[j - 1][2] - data[j - 2][2]) > pi:
+                rotation_velocity = (data[j - 1][2] - np.sign(data[j - 1][2]) * pi) / (
+                        data[j - 1][-1] - data[j - 2][-1])
+            else:
+                rotation_velocity = (data[j - 1][2] - data[j - 2][2]) / (data[j - 1][3] - data[j - 2][3])
             puck_EKF.state = np.array(
-                [data[j][0], data[j][1], (data[j - 1][0] - data[j][0]) / (data[j - 1][3] - data[j][3]),
-                 (data[j - 1][1] - data[j][1]) / (data[j - 1][3] - data[j][3]), data[j][2],
-                 (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])])
+                [data[j - 1][0], data[j - 1][1], (data[j - 1][0] - data[j - 2][0]) / (data[j - 1][3] - data[j - 2][3]),
+                 (data[j - 1][1] - data[j - 2][1]) / (data[j - 1][3] - data[j - 2][3]), data[j - 1][2],
+                 rotation_velocity])
             puck_EKF.predict()
+            j += 1
     return evaluation/num_evaluation
 
 
