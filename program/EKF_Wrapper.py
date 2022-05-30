@@ -18,13 +18,12 @@ class air_hockey_EKF:
         self.predict_state = None
         self.F = None
         self.score = False
-        self.y = None
-        self.S = None
+        self.has_collision = False
 
     def predict(self):
         self.P = self.system.F @ self.P @ self.system.F.T + self.Q
-        has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
-        if has_collision:
+        self.has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
+        if self.has_collision:
             self.F = jacobian
         else:
             self.F = self.system.F
@@ -34,15 +33,17 @@ class air_hockey_EKF:
         # measurement residual
         H = np.zeros((3, 6))
         H[0][0] = H[1][1] = H[2][4] = 1
-        self.y = measure - np.array([self.state[0], self.state[1], self.state[4]])
-        if abs(self.y[2]) > pi:
-            self.y[2] = self.y[2] - np.sign(measure[2])*2*pi
-        self.S = H @ self.P @ H.T + self.R
-        K = self.P @ H.T @ lg.inv(self.S)
-        self.state = self.predict_state + K @ self.y
+        y = measure - np.array([self.predict_state[0], self.predict_state[1], self.predict_state[4]])
+        if abs(y[2]) > pi:
+            y[2] = y[2] - np.sign(measure[2]) * 2 * pi
+        S = H @ self.P @ H.T + self.R
+        K = self.P @ H.T @ lg.inv(S)
+        self.state = self.predict_state + K @ y
         self.P = (np.eye(6) - K @ H) @ self.P
 
 
+# followed code is used to plot the result of EKF and to test EKF.
+'''
 system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
                                          goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
                                          tableRes=0.7424, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
@@ -154,3 +155,4 @@ plt.scatter(data[1:, -1]-data[0][-1], data[1:, 1], color='g', label='raw data y 
 plt.title('EKF vs raw data y position')
 plt.legend()
 plt.show()
+'''

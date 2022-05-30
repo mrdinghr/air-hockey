@@ -1,7 +1,6 @@
 from EKF_Wrapper import air_hockey_EKF
 import pandas as pd
 from hebo.design_space.design_space import DesignSpace
-import torch
 import air_hockey_baseline
 import numpy as np
 import matplotlib.pyplot as plt
@@ -26,7 +25,6 @@ def obj(x: pd.DataFrame) -> np.ndarray:
 
 
 def expectation(Nparams):
-    evaluation = 0
     # system initialization
     system = air_hockey_baseline.SystemModel(tableDamping=Nparams[1], tableFriction=Nparams[0],
                                              tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
@@ -70,7 +68,8 @@ def expectation(Nparams):
     u = 1 / 120
     # EKF start
     puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
-    num_evaluation = 0
+    num_evaluation = 0  # record the update time to normalize
+    evaluation = 0  # calculate log_Ly_theta
     for j in range(1, len(data)):
         if not puck_EKF.score:
             puck_EKF.predict()
