@@ -72,6 +72,7 @@ def kalman_smooth(raw_data, system, table):
                     puck_EKF.update(np.array(data[j][0:3]))
                 j += 1
             else:
+                EKF_res_update.append(False)
                 if abs(data[j][-1] - data[0][-1]) <= (i - 0.2) / 120:
                     j += 1
                 puck_EKF.state = puck_EKF.predict_state
@@ -90,6 +91,7 @@ def kalman_smooth(raw_data, system, table):
             EKF_res_P.append(puck_EKF.P)
             EKF_res_dynamic.append(puck_EKF.F)
             EKF_res_score.append(True)
+            EKF_res_update.append(False)
             EKF_res_collision.append(puck_EKF.has_collision)
             j += 1
     EKF_res_state = np.array(EKF_res_state)
@@ -106,7 +108,17 @@ def kalman_smooth(raw_data, system, table):
     ps = EKF_res_P[-1]
     time = np.shape(EKF_res_state)[0]
     xp = np.zeros(6)
+    evaluation = 0
+    num_evaluation = 0
+    i = 0
     for j in range(time - 1):
+        if EKF_res_update[-1 - j]:
+            i += 1
+            innovation = data[-i, 0:3] - np.array([xs[0], xs[1], xs[4]])
+            innovation_covariance = puck_EKF.H@ps@puck_EKF.H.T + R
+            sign, logdet = np.linalg.slogdet(innovation_covariance)
+            num_evaluation += 1
+            evaluation += (sign*np.exp(logdet) + innovation.T @ np.linalg.inv(innovation_covariance) @ innovation)
         if not EKF_res_score[-2 - j]:
             xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
             if not EKF_res_collision[-j - 1]:
@@ -135,6 +147,7 @@ def kalman_smooth(raw_data, system, table):
             ps = EKF_res_P[-j - 2]
             xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
             smooth_res_state.append(xs)
+    return evaluation/num_evaluation
     # follow code is used to test plot result of kalman smooth. so it s nothing to do with EM process.
     '''
     smooth_res_state = np.array(smooth_res_state)
@@ -271,6 +284,7 @@ def kalman_smooth(raw_data, system, table):
 '''
 
 
+'''
 raw_data = np.load("example_data.npy")
 system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
                                          goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
@@ -278,3 +292,4 @@ system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001
 table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
                                            restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
 kalman_smooth(raw_data, system, table)
+'''

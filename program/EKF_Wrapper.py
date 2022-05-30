@@ -19,6 +19,8 @@ class air_hockey_EKF:
         self.F = None
         self.score = False
         self.has_collision = False
+        self.H = np.zeros((3, 6))
+        self.H[0][0] = self.H[1][1] = self.H[2][4] = 1
 
     def predict(self):
         self.P = self.system.F @ self.P @ self.system.F.T + self.Q
