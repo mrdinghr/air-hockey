@@ -43,7 +43,7 @@ def expectation(Nparams):
     Q[4][4] = 1.0e-2
     Q[5][5] = 1.0e-1
     P = np.eye(6) * 0.01
-    raw_data = np.load("example_data.npy")
+    raw_data = np.load("example_data2.npy")
     pre_data = []
     for j in range(1, len(raw_data)):
         if abs(raw_data[j][0] - raw_data[j - 1][0]) < 0.005 and abs(raw_data[j][1] - raw_data[j - 1][1]) < 0.005:
@@ -114,7 +114,7 @@ for i in range(30):
 
     hebo.observe(rec_x, obj(rec_x))
     min_idx = hebo.y.argmin()
-    print(str(i) + ' y is ' + str(hebo.y.min()) + ' tableFriction ' + str(hebo.X.iloc[min_idx]['tableFriction']) +' tableDamping '+ str(
+    print(str(i+1) + ' y is ' + str(hebo.y.min()) + ' tableFriction ' + str(hebo.X.iloc[min_idx]['tableFriction']) +' tableDamping '+ str(
         hebo.X.iloc[min_idx]['tableDamping']) + ' tableRestitution ' + str(hebo.X.iloc[min_idx]['tableRestitution']))
-    plt.scatter(i, hebo.y.min(), color='b')
+    plt.scatter(i+1, hebo.y.min(), color='b')
 plt.show()

@@ -10,7 +10,7 @@ from kalman_smoothing import kalman_smooth
 
 params = [{'name': 'tableFriction', 'type': 'num', 'lb': 0, 'ub': 0.5},
           {'name': 'tableDamping', 'type': 'num', 'lb': 0, 'ub': 0.5},
-          {'name': 'tableRestitution', 'type': 'num', 'lb': 0, 'ub': 0.9}]
+          {'name': 'tableRestitution', 'type': 'num', 'lb': 0, 'ub': 1}]
 space = DesignSpace().parse(params)
 bo = BO(space)
 hebo = HEBO(space, rand_sample=5)
