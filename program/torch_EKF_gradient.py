@@ -7,15 +7,15 @@ device = torch.device("cuda")
 
 
 def calculate_loss(raw_data, params):
-    table_friction = params[0]
-    table_damping = params[1]
-    table_restitution = params[2]
-    system = torch_air_hockey_baseline.SystemModel(tableDamping=table_damping, tableFriction=table_friction,
+    # table_friction = params[0]
+    # table_damping = params[1]
+    # table_restitution = params[2]
+    system = torch_air_hockey_baseline.SystemModel(tableDamping=params[1], tableFriction=params[0],
                                                    tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
-                                                   puckRadius=0.03165, malletRadius=0.04815, tableRes=table_restitution,
+                                                   puckRadius=0.03165, malletRadius=0.04815, tableRes=params[2],
                                                    malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
     table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                                     restitution=table_restitution, rimFriction=0.1418, dt=1 / 120)
+                                                     restitution=params[2], rimFriction=0.1418, dt=1 / 120)
     R = torch.zeros((3, 3), device=device)
     R[0][0] = 2.5e-7
     R[1][1] = 2.5e-7
@@ -90,7 +90,9 @@ def calculate_loss(raw_data, params):
                  rotation_velocity], dtype=float, device=device)
             puck_EKF.predict()
             j += 1
-    return evaluation / num_evaluation
+    loss = evaluation / num_evaluation
+    loss.requires_grad_(True)
+    return loss
 
 
 class EKFGradient(torch.nn.Module):
@@ -106,12 +108,16 @@ raw_data = np.load("example_data2.npy")
 model = EKFGradient(raw_data)
 model.to(device)
 init_params = torch.tensor([0.5, 0.5, 0.5])
-print(model.forward(init_params))
+loss = model.forward(init_params)
+print(loss)
+loss.backward()
+print(init_params.grad)
 learning_rate = 0.001
-# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-# for t in range(5):
-#     loss = model.forward(init_params)
-#     print(t, loss)
-#     optimizer.zero_grad()
-#     loss.backward()
-#     optimizer.step()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+# use autograd to optimize parameters
+for t in range(5):
+    loss = model.forward(init_params)
+    print(t, loss)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()

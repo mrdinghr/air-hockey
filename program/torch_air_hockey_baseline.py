@@ -77,7 +77,7 @@ class AirHockeyTable:
     def apply_collision(self, state):
         p = state[0:2]
         vel = state[2:4]
-        vel = vel.cuda()
+        # vel = vel.cuda()
         jacobian = torch.eye(6, device=device)
         if abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
             return False, state, jacobian, True
@@ -143,7 +143,11 @@ class AirHockeyTable:
                 state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
                 state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
                 state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
+                state.requires_grad_(True)
+                jacobian.requires_grad_(True)
                 return True, state, jacobian, False
+        state.requires_grad_(True)
+        jacobian.requires_grad_(True)
         return False, state, jacobian, False
 
 
@@ -193,6 +197,7 @@ class SystemModel:
             angle += pi * 2
         x_[4] = angle
         x_[5] = x[5]
+        x_.requires_grad_(True)
         return x_
 
     def update_jacobian(self, x, u):
