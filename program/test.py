@@ -5,7 +5,15 @@ import air_hockey_baseline
 from air_hockey_plot import trajectory_plot as trajectory
 from air_hockey_plot import table_plot
 import torch
-print(torch.vision)
+raw_data = np.load("example_data2.npy")
+pre_data = []
+for j in range(1, len(raw_data)):
+    if abs(raw_data[j][0] - raw_data[j - 1][0]) < 0.005 and abs(raw_data[j][1] - raw_data[j - 1][1]) < 0.005:
+        continue
+    pre_data .append(raw_data[j])
+pre_data = np.array(pre_data)
+pre_data = torch.from_numpy(pre_data)
+print(pre_data)
 # print(torch.cuda.current_device())
 # print(torch.cuda.device(0))
 # print(torch.cuda.get_device_name())
