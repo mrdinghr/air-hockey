@@ -1,6 +1,6 @@
 from math import pi
 import torch
-device = torch.device("cuda:0")
+device = torch.device("cuda")
 
 
 class air_hockey_EKF:
