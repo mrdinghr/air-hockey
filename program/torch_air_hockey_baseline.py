@@ -123,6 +123,7 @@ class AirHockeyTable:
                     self.m_jacCollision[4][5] = self.m_dt
                     self.m_jacCollision[5][2] = -2 / (3 * self.m_puckRadius)
                     self.m_jacCollision[5][5] = 1 / 3
+                    self.m_jacCollision = self.m_jacCollision.cuda()
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                 else:
                     # velocity on next time step with sliding

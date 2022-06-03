@@ -96,30 +96,27 @@ def calculate_loss(raw_data, params):
 
 
 class EKFGradient(torch.nn.Module):
-    def __init__(self, raw_data):
+    def __init__(self, raw_data, params):
         super(EKFGradient, self).__init__()
         self.raw_data = raw_data
+        self.register_parameter('params', params)
 
     def forward(self, params):
         loss = calculate_loss(self.raw_data, params)
-        loss.requires_grad_(True)
         return loss
 
 
 raw_data = np.load("example_data2.npy")
-model = EKFGradient(raw_data)
+init_params = torch.nn.Parameter(torch.tensor([0.3, 0.5, 0.8]).requires_grad_(True))
+model = EKFGradient(raw_data, init_params)
 model.to(device)
-init_params = torch.tensor([0.5, 0.5, 0.5]).requires_grad_(True)
-loss = model.forward(init_params)
-print(loss)
-loss.backward()
-print(init_params.grad)
-learning_rate = 0.001
+learning_rate = 0.01
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # use autograd to optimize parameters
-for t in range(5):
+for t in range(20):
     loss = model.forward(init_params)
     print(t, loss)
+    print(model.get_parameter('params'))
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
