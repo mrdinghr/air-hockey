@@ -101,13 +101,15 @@ class EKFGradient(torch.nn.Module):
         self.raw_data = raw_data
 
     def forward(self, params):
-        return calculate_loss(self.raw_data, params)
+        loss = calculate_loss(self.raw_data, params)
+        loss.requires_grad_(True)
+        return loss
 
 
 raw_data = np.load("example_data2.npy")
 model = EKFGradient(raw_data)
 model.to(device)
-init_params = torch.tensor([0.5, 0.5, 0.5])
+init_params = torch.tensor([0.5, 0.5, 0.5]).requires_grad_(True)
 loss = model.forward(init_params)
 print(loss)
 loss.backward()
