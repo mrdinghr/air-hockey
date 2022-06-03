@@ -5,10 +5,10 @@ import air_hockey_baseline
 from air_hockey_plot import trajectory_plot as trajectory
 from air_hockey_plot import table_plot
 import torch
-print(torch.cuda.is_available())
-print(torch.cuda.current_device())
-print(torch.cuda.device(0))
-print(torch.cuda.get_device_name())
+print(torch.vision)
+# print(torch.cuda.current_device())
+# print(torch.cuda.device(0))
+# print(torch.cuda.get_device_name())
 
 # table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
 #                                            restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
