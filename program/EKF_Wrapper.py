@@ -45,7 +45,7 @@ class air_hockey_EKF:
 
 
 # followed code is used to plot the result of EKF and to test EKF.
-'''
+
 system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
                                          goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
                                          tableRes=0.7424, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
@@ -157,4 +157,4 @@ plt.scatter(data[1:, -1]-data[0][-1], data[1:, 1], color='g', label='raw data y 
 plt.title('EKF vs raw data y position')
 plt.legend()
 plt.show()
-'''
+

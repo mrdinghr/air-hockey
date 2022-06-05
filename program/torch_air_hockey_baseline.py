@@ -37,7 +37,7 @@ class AirHockeyTable:
         self.m_rimGlobalTransforms = torch.zeros((4, 6, 6), device=device)
         self.m_rimGlobalTransformsInv = torch.zeros((4, 6, 6), device=device)
         self.m_rimGlobalTransforms[0] = T_tmp
-        self.m_rimGlobalTransformsInv[0] = torch.inverse(T_tmp)
+        self.m_rimGlobalTransformsInv[0] = torch.linalg.inv(T_tmp)
         #   Second Rim
         T_tmp = torch.zeros((6, 6), device=device)
         T_tmp[0][1] = -1
@@ -100,7 +100,7 @@ class AirHockeyTable:
                 dtheta = state[5]
                 vecT = v / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vecT = vecT.cuda()
-                vecN = torch.zeros(2)
+                vecN = torch.zeros(2, device=device)
                 vecN = vecN.cuda()
                 vecN[0] = -v[1] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vecN[1] = v[0] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
@@ -131,7 +131,7 @@ class AirHockeyTable:
                     vnNextScalar = -self.m_e * vnSCalar
                     state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
                             1 + self.m_e) * vnSCalar / self.m_puckRadius
-                    self.m_jacCollision = torch.eye(6)
+                    self.m_jacCollision = torch.eye(6, device=device)
                     self.m_jacCollision[0][2] = self.m_dt
                     self.m_jacCollision[1][3] = self.m_dt
                     self.m_jacCollision[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
@@ -193,7 +193,6 @@ class SystemModel:
             angle += pi * 2
         x_[4] = angle
         x_[5] = x[5]
-        x_.requires_grad_(True)
         return x_
 
     def update_jacobian(self, x, u):

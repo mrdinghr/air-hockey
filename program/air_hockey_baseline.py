@@ -100,7 +100,6 @@ class AirHockeyTable:
                     s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
                 theta = state[4]
                 dtheta = state[5]
-                collisionRim = i
                 vecT = v / np.sqrt(v[0] * v[0] + v[1] * v[1])
                 vecN = np.zeros(2)
                 vecN[0] = -v[1] / np.sqrt(v[0] * v[0] + v[1] * v[1])
