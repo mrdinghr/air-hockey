@@ -31,7 +31,7 @@ def calculate_loss(raw_data, params):
         if abs(raw_data[j][0] - raw_data[j - 1][0]) < 0.005 and abs(raw_data[j][1] - raw_data[j - 1][1]) < 0.005:
             continue
         pre_data.append(raw_data[j])
-    pre_data = torch.tensor(pre_data)
+    pre_data = torch.tensor(pre_data, device=device)
     for m in pre_data:
         m[0] += table.m_length / 2
     # EKF initialized state
@@ -90,9 +90,7 @@ def calculate_loss(raw_data, params):
                  rotation_velocity], dtype=float, device=device)
             puck_EKF.predict()
             j += 1
-    loss = evaluation / num_evaluation
-    loss.requires_grad_(True)
-    return loss
+    return evaluation / num_evaluation
 
 
 class EKFGradient(torch.nn.Module):
@@ -106,15 +104,15 @@ class EKFGradient(torch.nn.Module):
         return loss
 
 
-raw_data = np.load("example_data2.npy")
-init_params = torch.nn.Parameter(torch.tensor([0.3, 0.5, 0.8]).requires_grad_(True))
+raw_data = np.load("example_data.npy")
+init_params = torch.nn.Parameter(torch.tensor([0.125, 0.375, 0.6749999523162842]).requires_grad_(True))
 model = EKFGradient(raw_data, init_params)
 model.to(device)
-learning_rate = 0.01
+learning_rate = 0.001
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # use autograd to optimize parameters
-for t in range(20):
-    loss = model.forward(init_params)
+for t in range(100):
+    loss = model.forward(model.get_parameter('params'))
     print(t, loss)
     print(model.get_parameter('params'))
     optimizer.zero_grad()

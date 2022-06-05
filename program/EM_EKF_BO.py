@@ -43,7 +43,7 @@ def expectation(Nparams):
     Q[4][4] = 1.0e-2
     Q[5][5] = 1.0e-1
     P = np.eye(6) * 0.01
-    raw_data = np.load("example_data2.npy")
+    raw_data = np.load("example_data.npy")
     pre_data = []
     for j in range(1, len(raw_data)):
         if abs(raw_data[j][0] - raw_data[j - 1][0]) < 0.005 and abs(raw_data[j][1] - raw_data[j - 1][1]) < 0.005:

@@ -31,7 +31,6 @@ class AirHockeyTable:
                                     [offsetP4[0], offsetP4[1], offsetP2[0], offsetP2[1]],
                                     [offsetP2[0], offsetP2[1], offsetP1[0], offsetP1[1]]], device=device)
 
-        collisionRim = -1
         self.m_jacCollision = torch.eye(6, device=device)
         #   First Rim
         T_tmp = torch.eye(6)
@@ -40,7 +39,7 @@ class AirHockeyTable:
         self.m_rimGlobalTransforms[0] = T_tmp
         self.m_rimGlobalTransformsInv[0] = torch.inverse(T_tmp)
         #   Second Rim
-        T_tmp = torch.zeros((6, 6),device=device)
+        T_tmp = torch.zeros((6, 6), device=device)
         T_tmp[0][1] = -1
         T_tmp[1][0] = 1
         T_tmp[2][3] = -1
@@ -48,7 +47,7 @@ class AirHockeyTable:
         T_tmp[4][4] = 1
         T_tmp[5][5] = 1
         self.m_rimGlobalTransforms[1] = T_tmp
-        self.m_rimGlobalTransformsInv[1] = torch.inverse(T_tmp)
+        self.m_rimGlobalTransformsInv[1] = torch.linalg.inv(T_tmp)
         #   Third Rim
         T_tmp = torch.zeros((6, 6))
         T_tmp[0][0] = -1
@@ -58,7 +57,7 @@ class AirHockeyTable:
         T_tmp[4][4] = 1
         T_tmp[5][5] = 1
         self.m_rimGlobalTransforms[2] = T_tmp
-        self.m_rimGlobalTransformsInv[2] = torch.inverse(T_tmp)
+        self.m_rimGlobalTransformsInv[2] = torch.linalg.inv(T_tmp)
         #   Forth Rim
         T_tmp = torch.zeros((6, 6), device=device)
         T_tmp[0][1] = 1
@@ -79,9 +78,9 @@ class AirHockeyTable:
         vel = state[2:4]
         # vel = vel.cuda()
         jacobian = torch.eye(6, device=device)
-        if abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
+        if torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
             return False, state, jacobian, True
-        elif abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
+        elif torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
             return False, state, jacobian, True
         u = vel * self.m_dt
         i = 0
@@ -127,7 +126,7 @@ class AirHockeyTable:
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                 else:
                     # velocity on next time step with sliding
-                    slideDir = (vtScalar + dtheta * self.m_puckRadius) / abs(vtScalar + dtheta * self.m_puckRadius)
+                    slideDir = (vtScalar + dtheta * self.m_puckRadius) / torch.abs(vtScalar + dtheta * self.m_puckRadius)
                     vtNextSCalar = vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar
                     vnNextScalar = -self.m_e * vnSCalar
                     state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
@@ -144,11 +143,7 @@ class AirHockeyTable:
                 state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
                 state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
                 state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
-                state.requires_grad_(True)
-                jacobian.requires_grad_(True)
                 return True, state, jacobian, False
-        state.requires_grad_(True)
-        jacobian.requires_grad_(True)
         return False, state, jacobian, False
 
 
