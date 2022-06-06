@@ -33,7 +33,7 @@ class AirHockeyTable:
 
         self.m_jacCollision = torch.eye(6, device=device)
         #   First Rim
-        T_tmp = torch.eye(6)
+        T_tmp = torch.eye(6, device=device)
         self.m_rimGlobalTransforms = torch.zeros((4, 6, 6), device=device)
         self.m_rimGlobalTransformsInv = torch.zeros((4, 6, 6), device=device)
         self.m_rimGlobalTransforms[0] = T_tmp
@@ -49,7 +49,7 @@ class AirHockeyTable:
         self.m_rimGlobalTransforms[1] = T_tmp
         self.m_rimGlobalTransformsInv[1] = torch.linalg.inv(T_tmp)
         #   Third Rim
-        T_tmp = torch.zeros((6, 6))
+        T_tmp = torch.zeros((6, 6), device=device)
         T_tmp[0][0] = -1
         T_tmp[1][1] = -1
         T_tmp[2][2] = -1

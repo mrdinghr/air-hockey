@@ -62,7 +62,7 @@ def calculate_loss(raw_data, params):
             puck_EKF.predict()
             if (i - 0.2) / 120 < abs(data[j][-1] - data[0][-1]) < (i + 0.2) / 120:
                 if abs(data[j - 1][2] - data[j][2]) > pi:
-                    tmp = data[j][2]
+                    tmp = data[j][2].clone()
                     data[j][2] += -torch.sign(data[j][2]) * pi + data[j - 1][2]
                     puck_EKF.update(data[j, 0:3])
                     data[j][2] = tmp
@@ -108,7 +108,7 @@ raw_data = np.load("example_data.npy")
 init_params = torch.nn.Parameter(torch.tensor([0.125, 0.375, 0.6749999523162842]).requires_grad_(True))
 model = EKFGradient(raw_data, init_params)
 model.to(device)
-learning_rate = 0.001
+learning_rate = 0.1
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # use autograd to optimize parameters
 for t in range(100):
@@ -118,3 +118,5 @@ for t in range(100):
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+    for p in model.get_parameter('params'):
+        p.data.clamp_(0, 1)

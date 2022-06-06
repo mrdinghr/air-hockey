@@ -121,8 +121,9 @@ while j < length:
             [data[j][0], data[j][1], (data[j - 1][0] - data[j][0]) / (data[j - 1][3] - data[j][3]),
              (data[j - 1][1] - data[j][1]) / (data[j - 1][3] - data[j][3]), data[j][2], rotation_velocity])
         puck_EKF.predict()
-        resx.append(puck_EKF.predict_state[0])
-        resy.append(puck_EKF.predict_state[1])
+        # resx.append(puck_EKF.predict_state[0])
+        # resy.append(puck_EKF.predict_state[1])
+        time_EKF.remove(time_EKF[-1])
         j += 1
 table_plot(table)
 plt.plot(resx[0], resy[0], marker='d', color='r')
