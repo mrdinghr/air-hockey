@@ -52,16 +52,16 @@ def calculate_loss(raw_data, params):
     data = data.cuda()
     u = 1 / 120
     puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
-    num_evaluation = 0  # record the update time to normalize
-    evaluation = 0  # calculate log_Ly_theta
+    num_evaluation = torch.tensor([0], dtype=float, device=device)  # record the update time to normalize
+    evaluation = torch.tensor([0], dtype=float, device=device)   # calculate log_Ly_theta
     j = 1
     i = 0
     while j < len(data):
         i += 1
         if not puck_EKF.score:
             puck_EKF.predict()
-            if (i - 0.2) / 120 < abs(data[j][-1] - data[0][-1]) < (i + 0.2) / 120:
-                if abs(data[j - 1][2] - data[j][2]) > pi:
+            if (i - 0.2) / 120 < torch.abs(data[j][-1] - data[0][-1]) < (i + 0.2) / 120:
+                if torch.abs(data[j - 1][2] - data[j][2]) > pi:
                     tmp = data[j][2].clone()
                     data[j][2] += -torch.sign(data[j][2]) * pi + data[j - 1][2]
                     puck_EKF.update(data[j, 0:3])
@@ -74,11 +74,11 @@ def calculate_loss(raw_data, params):
                 num_evaluation += 1
 
             else:
-                if abs(data[j][-1] - data[0][-1]) <= (i - 0.2) / 120:
+                if torch.abs(data[j][-1] - data[0][-1]) <= (i - 0.2) / 120:
                     j += 1
                 puck_EKF.state = puck_EKF.predict_state
         else:
-            if abs(data[j - 1][2] - data[j - 2][2]) > pi:
+            if torch.abs(data[j - 1][2] - data[j - 2][2]) > pi:
                 rotation_velocity = (data[j - 1][2] - torch.sign(data[j - 1][2]) * pi) / (
                         data[j - 1][-1] - data[j - 2][-1])
             else:
@@ -111,7 +111,7 @@ model.to(device)
 learning_rate = 0.1
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # use autograd to optimize parameters
-for t in range(100):
+for t in range(10):
     loss = model.forward(model.get_parameter('params'))
     print(t, loss)
     print(model.get_parameter('params'))

@@ -87,9 +87,9 @@ class AirHockeyTable:
         for i in range(self.m_boundary.shape[0]):
             p1 = self.m_boundary[i][0:2]
             p2 = self.m_boundary[i][2:]
-            v = torch.tensor([p2[0] - p1[0], p2[1] - p1[1]])
-            w = torch.tensor([p1[0] - p[0], p1[1] - p[1]])
-            denominator = cross2d(v, u)
+            v = torch.tensor([p2[0] - p1[0], p2[1] - p1[1]], device=device)
+            w = torch.tensor([p1[0] - p[0], p1[1] - p[1]], device=device)
+            denominator = cross2d(v, u).cuda()
             if abs(denominator) < 1e-6:
                 continue
             s = cross2d(v, w) / denominator
