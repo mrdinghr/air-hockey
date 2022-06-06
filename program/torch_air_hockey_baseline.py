@@ -193,6 +193,7 @@ class SystemModel:
             angle += pi * 2
         x_[4] = angle
         x_[5] = x[5]
+        x_.requires_grad_(True)
         return x_
 
     def update_jacobian(self, x, u):

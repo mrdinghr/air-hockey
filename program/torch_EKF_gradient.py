@@ -117,6 +117,7 @@ for t in range(100):
     print(model.get_parameter('params'))
     optimizer.zero_grad()
     loss.backward()
+    print(init_params.grad)
     optimizer.step()
     for p in model.get_parameter('params'):
         p.data.clamp_(0, 1)
