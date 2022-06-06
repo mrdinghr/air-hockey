@@ -18,6 +18,7 @@ class AirHockeyTable:
         self.m_dt = dt
 
         ref = torch.tensor([length / 2, 0.])
+        ref.requires_grad
         offsetP1 = torch.tensor([-self.m_length / 2 + self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
         offsetP2 = torch.tensor([-self.m_length / 2 + self.m_puckRadius, self.m_width / 2 - self.m_puckRadius])
         offsetP3 = torch.tensor([self.m_length / 2 - self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
