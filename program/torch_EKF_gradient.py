@@ -35,21 +35,18 @@ def calculate_loss(raw_data, params):
     for m in pre_data:
         m[0] += table.m_length / 2
     # EKF initialized state
-    state_dx = (pre_data[1][0] - pre_data[0][0]) / (pre_data[1][3] - pre_data[0][3])
-    state_dy = (pre_data[1][1] - pre_data[0][1]) / (pre_data[1][3] - pre_data[0][3])
-    state_dtheta = (pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0][3])
-    # state_dx = ((pre_data[1][0] - pre_data[0][0]) / (pre_data[1][3] - pre_data[0][3]) + (
-    #         pre_data[2][0] - pre_data[1][0]) / (
-    #                     pre_data[2][3] - pre_data[1][3]) + (pre_data[3][0] - pre_data[2][0]) / (
-    #                     pre_data[3][3] - pre_data[2][3])) / 3
-    # state_dy = ((pre_data[1][1] - pre_data[0][1]) / (pre_data[1][3] - pre_data[0][3]) + (
-    #         pre_data[2][1] - pre_data[1][1]) / (
-    #                     pre_data[2][3] - pre_data[1][3]) + (pre_data[3][1] - pre_data[2][1]) / (
-    #                     pre_data[3][3] - pre_data[2][3])) / 3
-    # state_dtheta = ((pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0][3]) + (
-    #         pre_data[2][2] - pre_data[1][2]) / (
-    #                         pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
-    #                         pre_data[3][3] - pre_data[2][3])) / 3
+    state_dx = ((pre_data[1][0] - pre_data[0][0]) / (pre_data[1][3] - pre_data[0][3]) + (
+            pre_data[2][0] - pre_data[1][0]) / (
+                        pre_data[2][3] - pre_data[1][3]) + (pre_data[3][0] - pre_data[2][0]) / (
+                        pre_data[3][3] - pre_data[2][3])) / 3
+    state_dy = ((pre_data[1][1] - pre_data[0][1]) / (pre_data[1][3] - pre_data[0][3]) + (
+            pre_data[2][1] - pre_data[1][1]) / (
+                        pre_data[2][3] - pre_data[1][3]) + (pre_data[3][1] - pre_data[2][1]) / (
+                        pre_data[3][3] - pre_data[2][3])) / 3
+    state_dtheta = ((pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0][3]) + (
+            pre_data[2][2] - pre_data[1][2]) / (
+                            pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
+                            pre_data[3][3] - pre_data[2][3])) / 3
     state = torch.tensor([pre_data[1][0], pre_data[1][1], state_dx, state_dy, pre_data[1][2], state_dtheta], device=device)
     data = pre_data[1:]
     data = data.cuda()
@@ -97,25 +94,24 @@ def calculate_loss(raw_data, params):
 
 
 class EKFGradient(torch.nn.Module):
-    def __init__(self, raw_data, params):
+    def __init__(self, params):
         super(EKFGradient, self).__init__()
-        self.raw_data = raw_data
         self.register_parameter('params', params)
 
-    def forward(self, params):
-        loss = calculate_loss(self.raw_data, params)
+    def forward(self, raw_data):
+        loss = calculate_loss(raw_data, self.get_parameter('params'))
         return loss
 
 
 raw_data = np.load("example_data.npy")
 init_params = torch.nn.Parameter(torch.tensor([0.125, 0.375, 0.6749999523162842]).requires_grad_(True))
-model = EKFGradient(raw_data, init_params)
+model = EKFGradient(init_params)
 model.to(device)
 learning_rate = 0.1
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 # use autograd to optimize parameters
 for t in range(10):
-    loss = model.forward(model.get_parameter('params'))
+    loss = model.forward(raw_data)
     print(t, loss)
     print(model.get_parameter('params'))
     optimizer.zero_grad()
