@@ -12,11 +12,8 @@ class air_hockey_EKF:
         self.system = system
         self.table = table
         self.Q = Q
-        self.Q.to(device)
         self.R = R
-        self.R.to(device)
         self.P = P
-        self.P.to(device)
         self.u = u
         self.predict_state = None
         self.F = None
@@ -27,7 +24,6 @@ class air_hockey_EKF:
 
     def predict(self):
         self.P = self.system.F @ self.P @ self.system.F.T + self.Q
-        self.P.to(device)
         self.has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
         if self.has_collision:
             self.F = jacobian

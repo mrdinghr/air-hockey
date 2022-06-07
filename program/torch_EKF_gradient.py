@@ -52,8 +52,9 @@ def calculate_loss(raw_data, params):
     data = data.cuda()
     u = 1 / 120
     puck_EKF = air_hockey_EKF(state=state, u=u, system=system, table=table, Q=Q, R=R, P=P)
-    num_evaluation = torch.tensor([0], dtype=float, device=device)  # record the update time to normalize
-    evaluation = torch.tensor([0], dtype=float, device=device)   # calculate log_Ly_theta
+    num_evaluation = torch.tensor([0], device=device)  # record the update time to normalize
+    # evaluation = torch.tensor([0], dtype=float, device=device)   # calculate log_Ly_theta
+    evaluation = torch.tensor([0], device=device)
     j = 1
     i = 0
     while j < len(data):
@@ -70,7 +71,7 @@ def calculate_loss(raw_data, params):
                     puck_EKF.update(data[j, 0:3])
                 j += 1
                 sign, logdet = torch.linalg.slogdet(puck_EKF.S)
-                evaluation += (sign * torch.exp(logdet) + puck_EKF.y.T @ torch.linalg.inv(puck_EKF.S) @ puck_EKF.y)
+                evaluation = torch.cat((evaluation, torch.tensor([sign * torch.exp(logdet) + puck_EKF.y.T @ torch.linalg.inv(puck_EKF.S) @ puck_EKF.y], device=device)))
                 num_evaluation += 1
 
             else:
@@ -90,7 +91,9 @@ def calculate_loss(raw_data, params):
                  rotation_velocity], dtype=float, device=device)
             puck_EKF.predict()
             j += 1
-    return evaluation / num_evaluation
+    evaluation.requires_grad
+    loss = torch.sum(evaluation) / num_evaluation
+    return loss
 
 
 class EKFGradient(torch.nn.Module):
@@ -100,6 +103,7 @@ class EKFGradient(torch.nn.Module):
 
     def forward(self, raw_data):
         loss = calculate_loss(raw_data, self.get_parameter('params'))
+        loss.requires_grad_(True)
         return loss
 
 

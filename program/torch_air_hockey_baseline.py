@@ -14,7 +14,6 @@ class AirHockeyTable:
         self.m_puckRadius = puckRadius
         self.m_goalWidth = goalWidth
         self.m_e = restitution
-        self.m_e.requires_grad
         self.m_rimFriction = rimFriction
         self.m_dt = dt
 
@@ -101,9 +100,7 @@ class AirHockeyTable:
                 theta = state[4]
                 dtheta = state[5]
                 vecT = v / torch.sqrt(v[0] * v[0] + v[1] * v[1])
-                vecT = vecT.cuda()
                 vecN = torch.zeros(2, device=device)
-                vecN = vecN.cuda()
                 vecN[0] = -v[1] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vecN[1] = v[0] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vtScalar = torch.dot(vel, vecT)
@@ -115,7 +112,7 @@ class AirHockeyTable:
                     # Angular volocity next point
                     state[5] = dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
                     # update jacobian
-                    self.m_jacCollision = torch.eye(6)
+                    self.m_jacCollision = torch.eye(6, device=device)
                     self.m_jacCollision[0][2] = self.m_dt
                     self.m_jacCollision[1][3] = self.m_dt
                     self.m_jacCollision[2][2] = 2 / 3
@@ -124,7 +121,7 @@ class AirHockeyTable:
                     self.m_jacCollision[4][5] = self.m_dt
                     self.m_jacCollision[5][2] = -2 / (3 * self.m_puckRadius)
                     self.m_jacCollision[5][5] = 1 / 3
-                    self.m_jacCollision = self.m_jacCollision.cuda()
+                    self.m_jacCollision = self.m_jacCollision
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                 else:
                     # velocity on next time step with sliding
@@ -140,7 +137,7 @@ class AirHockeyTable:
                     self.m_jacCollision[3][3] = -self.m_e
                     self.m_jacCollision[4][5] = self.m_dt
                     self.m_jacCollision[5][3] = self.m_jacCollision[2][3]*2 / self.m_puckRadius
-                    self.m_jacCollision = self.m_jacCollision.cuda()
+                    self.m_jacCollision = self.m_jacCollision
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                 state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
                 state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
@@ -174,18 +171,17 @@ class SystemModel:
         self.J_linear[4][5] = dt
         self.J_linear[5][5] = 1
         self.F = self.J_linear
-        self.F.to(device)
 
     def f(self, x, u):
         x_ = torch.zeros(6, device=device)
         x_[0:2] = x[0:2] + u * x[2:4]
-        x_[2:4] = x[2:4] - u * (
-                self.tableDamping * x[2:4] + self.tableFriction * torch.sign(x[2:4]))
-        # if torch.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
-        #     x_[2:4] = x[2:4] - u * (
-        #                 self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / torch.sqrt(x[2] * x[2] + x[3] * x[3]))
-        # else:
-        #     x_[2:4] = x[2:4] - u * self.tableDamping * x[2:4]
+        # x_[2:4] = x[2:4] - u * (
+        #         self.tableDamping * x[2:4] + self.tableFriction * torch.sign(x[2:4]))
+        if torch.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
+            x_[2:4] = x[2:4] - u * (
+                        self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / torch.sqrt(x[2] * x[2] + x[3] * x[3]))
+        else:
+            x_[2:4] = x[2:4] - u * self.tableDamping * x[2:4]
         angle = torch.fmod(x[4] + u * x[5], pi * 2)
         if angle > pi:
             angle -= pi * 2
