@@ -14,6 +14,7 @@ class AirHockeyTable:
         self.m_puckRadius = puckRadius
         self.m_goalWidth = goalWidth
         self.m_e = restitution
+        self.m_e.requires_grad
         self.m_rimFriction = rimFriction
         self.m_dt = dt
 
@@ -152,13 +153,16 @@ class SystemModel:
     def __init__(self, tableDamping, tableFriction, tableLength, tableWidth, goalWidth, puckRadius, malletRadius,
                  tableRes, malletRes, rimFriction, dt):
         self.tableDamping = tableDamping
+        self.tableDamping.requires_grad
         self.tableFriction = tableFriction
+        self.tableFriction.requires_grad
         self.tableLength = tableLength
         self.tableWidth = tableWidth
         self.goalWidth = goalWidth
         self.puckRadius = puckRadius
         self.malletRadius = malletRadius
         self.tableRes = tableRes
+        self.tableRes.requires_grad
         self.malletRes = malletRes
         self.rimFriction = rimFriction
         self.dt = dt

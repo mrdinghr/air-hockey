@@ -48,13 +48,16 @@ class air_hockey_EKF:
         self.P = (torch.eye(6, device=device) - K @ H) @ self.P
 
 
-# test for torch_EKF_Wrapper
 '''
-system = torch_air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
+# test for torch_EKF_Wrapper
+# tableDamping = 0.001
+# tableFriction = 0.001
+# tableRestitution = 0.7424
+system = torch_air_hockey_baseline.SystemModel(tableDamping=0.125, tableFriction=0.0, tableLength=1.948, tableWidth=1.038,
                                          goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
-                                         tableRes=0.7424, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
+                                         tableRes=0.675, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
 table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                           restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
+                                           restitution=0.675, rimFriction=0.1418, dt=1 / 120)
 R = torch.zeros((3, 3), device=device)
 R[0][0] = 2.5e-7
 R[1][1] = 2.5e-7
