@@ -1,22 +1,13 @@
-import matplotlib.patches
-import matplotlib.pyplot as plt
-import numpy as np
-import air_hockey_baseline
-from air_hockey_plot import trajectory_plot as trajectory
-from air_hockey_plot import table_plot
 import torch
-raw_data = np.load("example_data2.npy")
-pre_data = []
-for j in range(1, len(raw_data)):
-    if abs(raw_data[j][0] - raw_data[j - 1][0]) < 0.005 and abs(raw_data[j][1] - raw_data[j - 1][1]) < 0.005:
-        continue
-    pre_data .append(raw_data[j])
-pre_data = np.array(pre_data)
-pre_data = torch.from_numpy(pre_data)
-print(pre_data)
-# print(torch.cuda.current_device())
-# print(torch.cuda.device(0))
-# print(torch.cuda.get_device_name())
+
+
+class EKFGradient(torch.nn.Module):
+    def __init__(self):
+        super(EKFGradient,self).__init__()
+
+
+    def forward(self,params):
+
 
 # table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
 #                                            restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
