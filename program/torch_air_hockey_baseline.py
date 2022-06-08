@@ -18,7 +18,6 @@ class AirHockeyTable:
         self.m_dt = dt
 
         ref = torch.tensor([length / 2, 0.])
-        ref.requires_grad
         offsetP1 = torch.tensor([-self.m_length / 2 + self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
         offsetP2 = torch.tensor([-self.m_length / 2 + self.m_puckRadius, self.m_width / 2 - self.m_puckRadius])
         offsetP3 = torch.tensor([self.m_length / 2 - self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
@@ -77,26 +76,24 @@ class AirHockeyTable:
     def apply_collision(self, state):
         p = state[0:2]
         vel = state[2:4]
-        # vel = vel.cuda()
         jacobian = torch.eye(6, device=device)
-        if torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
-            return False, state, jacobian, True
-        elif torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
-            return False, state, jacobian, True
+        # if torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
+        #     return False, state, jacobian, True
+        # elif torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
+        #     return False, state, jacobian, True
         u = vel * self.m_dt
         i = 0
         for i in range(self.m_boundary.shape[0]):
             p1 = self.m_boundary[i][0:2]
             p2 = self.m_boundary[i][2:]
-            v = torch.tensor([p2[0] - p1[0], p2[1] - p1[1]], device=device)
-            w = torch.tensor([p1[0] - p[0], p1[1] - p[1]], device=device)
-            denominator = cross2d(v, u).cuda()
+            v = p2 - p1  # torch.tensor([p2[0] - p1[0], p2[1] - p1[1]], device=device).double()
+            w = p1 - p  # torch.tensor([p1[0] - p[0], p1[1] - p[1]], device=device).double()
+            denominator = cross2d(v, u)
             if abs(denominator) < 1e-6:
                 continue
             s = cross2d(v, w) / denominator
             r = cross2d(u, w) / denominator
-            if cross2d(w, v) < 0 or (
-                    s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
+            if cross2d(w, v) < 0 or (s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
                 theta = state[4]
                 dtheta = state[5]
                 vecT = v / torch.sqrt(v[0] * v[0] + v[1] * v[1])
@@ -141,7 +138,12 @@ class AirHockeyTable:
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                 state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
                 state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
-                state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
+                if theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt > pi:
+                    state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt - 2*pi
+                elif theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt < -pi:
+                    state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
+                else:
+                    state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
                 return True, state, jacobian, False
         return False, state, jacobian, False
 
@@ -150,16 +152,13 @@ class SystemModel:
     def __init__(self, tableDamping, tableFriction, tableLength, tableWidth, goalWidth, puckRadius, malletRadius,
                  tableRes, malletRes, rimFriction, dt):
         self.tableDamping = tableDamping
-        self.tableDamping.requires_grad
         self.tableFriction = tableFriction
-        self.tableFriction.requires_grad
         self.tableLength = tableLength
         self.tableWidth = tableWidth
         self.goalWidth = goalWidth
         self.puckRadius = puckRadius
         self.malletRadius = malletRadius
         self.tableRes = tableRes
-        self.tableRes.requires_grad
         self.malletRes = malletRes
         self.rimFriction = rimFriction
         self.dt = dt
@@ -174,7 +173,7 @@ class SystemModel:
 
     def f(self, x, u):
         x_ = torch.zeros(6, device=device)
-        x_[0:2] = x[0:2] + u * x[2:4]
+        x_[0:2] += x[0:2] + u * x[2:4]
         # x_[2:4] = x[2:4] - u * (
         #         self.tableDamping * x[2:4] + self.tableFriction * torch.sign(x[2:4]))
         if torch.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
@@ -189,7 +188,6 @@ class SystemModel:
             angle += pi * 2
         x_[4] = angle
         x_[5] = x[5]
-        x_.requires_grad_(True)
         return x_
 
     def update_jacobian(self, x, u):
