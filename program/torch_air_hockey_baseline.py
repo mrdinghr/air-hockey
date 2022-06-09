@@ -22,10 +22,10 @@ class AirHockeyTable:
         offsetP2 = torch.tensor([-self.m_length / 2 + self.m_puckRadius, self.m_width / 2 - self.m_puckRadius])
         offsetP3 = torch.tensor([self.m_length / 2 - self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
         offsetP4 = torch.tensor([self.m_length / 2 - self.m_puckRadius, self.m_width / 2 - self.m_puckRadius])
-        offsetP1 += ref
-        offsetP2 += ref
-        offsetP3 += ref
-        offsetP4 += ref
+        offsetP1 = offsetP1 + ref
+        offsetP2 = offsetP2 + ref
+        offsetP3 = offsetP3 + ref
+        offsetP4 = offsetP4 + ref
         self.m_boundary = torch.tensor([[offsetP1[0], offsetP1[1], offsetP3[0], offsetP3[1]],
                                     [offsetP3[0], offsetP3[1], offsetP4[0], offsetP4[1]],
                                     [offsetP4[0], offsetP4[1], offsetP2[0], offsetP2[1]],
@@ -173,7 +173,7 @@ class SystemModel:
 
     def f(self, x, u):
         x_ = torch.zeros(6, device=device)
-        x_[0:2] += x[0:2] + u * x[2:4]
+        x_[0:2] = x_[0:2] + x[0:2] + u * x[2:4]
         # x_[2:4] = x[2:4] - u * (
         #         self.tableDamping * x[2:4] + self.tableFriction * torch.sign(x[2:4]))
         if torch.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
@@ -183,9 +183,9 @@ class SystemModel:
             x_[2:4] = x[2:4] - u * self.tableDamping * x[2:4]
         angle = torch.fmod(x[4] + u * x[5], pi * 2)
         if angle > pi:
-            angle -= pi * 2
+            angle = angle - pi * 2
         elif angle < -pi:
-            angle += pi * 2
+            angle = angle + pi * 2
         x_[4] = angle
         x_[5] = x[5]
         return x_

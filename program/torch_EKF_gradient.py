@@ -71,31 +71,33 @@ class EKFGradient(torch.nn.Module):
         self.puck_EKF.init_state(state)
         data = raw_data[1:]
         num_evaluation = 0  # record the update time to normalize
-        evaluation = torch.tensor([0], device=device, dtype=float)
-        # evaluation = torch.zeros(len(data)-1, dtype=float, device=device)   # calculate log_Ly_theta
+        # evaluation = torch.tensor([0], device=device, dtype=float)
+        evaluation = torch.zeros(len(data)-1, dtype=float, device=device)   # calculate log_Ly_theta
         # evaluation = torch.tensor(0., device=device)
         j = 1
         i = 0
         while j < len(data) - 1:
-            i += 1
+            i = i + 1
             self.puck_EKF.predict()
             # check whether data is recorded at right time
             if (i - 0.2) / 120 < data[j][-1] - data[0][-1] < (i + 0.2) / 120:
                 self.puck_EKF.update(data[j + 1][0:3])
-                j += 1
+                j = j + 1
                 sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
-                # evaluation[j-2] = evaluation[j-2] + sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
-                evaluation =torch.cat((evaluation, torch.tensor([sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y], device=device)))
+                cur_log = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
+                evaluation[j-2] = evaluation[j-2] + cur_log
+                # evaluation =torch.cat((evaluation, torch.tensor([sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y], device=device)))
                 # evaluation += sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
                 num_evaluation += 1
             elif data[j + 1][-1] - data[1][-1] <= (i - 0.2) / 120:
-                j += 1
+                j = j + 1
                 self.puck_EKF.state = self.puck_EKF.predict_state
             else:
                 self.puck_EKF.state = self.puck_EKF.predict_state
+        # loss = torch.sum(evaluation) / num_evaluation
         # evaluation.requires_grad
         # evaluation.retain_grad()
-        loss = torch.sum(evaluation) / num_evaluation
+        loss = torch.mean(evaluation)
         loss.requires_grad_(True)
         # loss = evaluation / num_evaluation
         return loss
