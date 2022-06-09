@@ -76,13 +76,14 @@ class AirHockeyTable:
     def apply_collision(self, state):
         p = state[0:2]
         vel = state[2:4]
-        jacobian = torch.eye(6, device=device)
+        # jacobian = torch.eye(6, device=device)
         # if torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
         #     return False, state, jacobian, True
         # elif torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
         #     return False, state, jacobian, True
         u = vel * self.m_dt
         i = 0
+        cur_state = torch.zeros(6, device=device)
         for i in range(self.m_boundary.shape[0]):
             p1 = self.m_boundary[i][0:2]
             p2 = self.m_boundary[i][2:]
@@ -107,7 +108,7 @@ class AirHockeyTable:
                     vtNextSCalar = 2 * vtScalar / 3 - self.m_puckRadius * dtheta / 3
                     vnNextScalar = -self.m_e * vnSCalar
                     # Angular volocity next point
-                    state[5] = dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
+                    cur_state[5] = dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
                     # update jacobian
                     self.m_jacCollision = torch.eye(6, device=device)
                     self.m_jacCollision[0][2] = self.m_dt
@@ -125,7 +126,7 @@ class AirHockeyTable:
                     slideDir = (vtScalar + dtheta * self.m_puckRadius) / torch.abs(vtScalar + dtheta * self.m_puckRadius)
                     vtNextSCalar = vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar
                     vnNextScalar = -self.m_e * vnSCalar
-                    state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
+                    cur_state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
                             1 + self.m_e) * vnSCalar / self.m_puckRadius
                     self.m_jacCollision = torch.eye(6, device=device)
                     self.m_jacCollision[0][2] = self.m_dt
@@ -136,16 +137,16 @@ class AirHockeyTable:
                     self.m_jacCollision[5][3] = self.m_jacCollision[2][3]*2 / self.m_puckRadius
                     self.m_jacCollision = self.m_jacCollision
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
-                state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
-                state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
+                cur_state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
+                cur_state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
                 if theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt > pi:
-                    state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt - 2*pi
+                    cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt - 2*pi
                 elif theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt < -pi:
-                    state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
+                    cur_state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
                 else:
-                    state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
-                return True, state, jacobian, False
-        return False, state, jacobian, False
+                    cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
+                return True, cur_state, jacobian, False
+        return False, cur_state, torch.eye(6, device=device), False
 
 
 class SystemModel:

@@ -4,11 +4,15 @@ from torch_EKF_Wrapper import air_hockey_EKF
 from math import pi
 import numpy as np
 
-a0 = torch.tensor([2,2])
-a1 = torch.tensor([1])
-a0 = torch.cat((a0, a1))
-a0 = torch.cat((a0,a1))
-print(a0, torch.__version__)
+a = torch.tensor([0])
+x = torch.tensor([1.], requires_grad=True)
+sum = 0
+for i in range(3):
+    a = torch.cat((a, x))
+    sum +=1
+c = torch.sum(a)/sum
+c.backward()
+print(x.grad)
 
 
 # table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
