@@ -44,12 +44,13 @@ class air_hockey_EKF:
         elif self.y[2] <= -pi:
             self.y[2] += pi * 2
         self.S = self.H @ self.P @ self.H.T + self.R
+        # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
         self.state = self.predict_state + K @ self.y
         self.P = (torch.eye(6, device=device) - K @ self.H) @ self.P
 
 
-
+'''
 # test for torch_EKF_Wrapper
 # tableDamping = 0.001
 # tableFriction = 0.001
@@ -65,7 +66,7 @@ R[1][1] = 2.5e-7
 R[2][2] = 9.1e-3
 Q = torch.zeros((6, 6), device=device)
 Q[0][0] = Q[1][1] = 2e-10
-Q[2][2] = Q[3][3] = 3e-7
+Q[2][2] = Q[3][3] = 0.01
 Q[4][4] = 1.0e-2
 Q[5][5] = 1.0e-1
 P = torch.eye(6, device=device) * 0.01
@@ -116,22 +117,20 @@ while j < length:
         puck_EKF.state = puck_EKF.predict_state
     else:
         puck_EKF.state = puck_EKF.predict_state
-    # else:
-        # if torch.abs(data[j - 1][2] - data[j][2]) > pi:
-        #     rotation_velocity = (data[j][2] - torch.sign(data[j][2])*pi) / (data[j][-1] - data[j - 1][-1])
-        # else:
-        #     rotation_velocity = (data[j - 1][2] - data[j][2]) / (data[j - 1][3] - data[j][3])
-        # puck_EKF.state = torch.tensor(
-        #     [data[j][0], data[j][1], (data[j - 1][0] - data[j][0]) / (data[j - 1][3] - data[j][3]),
-        #      (data[j - 1][1] - data[j][1]) / (data[j - 1][3] - data[j][3]), data[j][2], rotation_velocity], device=device)
-        # puck_EKF.predict()
-        # resx.append(puck_EKF.predict_state[0])
-        # resy.append(puck_EKF.predict_state[1])
-        # res_theta.append(puck_EKF.predict_state[4])
-        # j += 1
 resx = torch.tensor(resx, device=device)
 resy = torch.tensor(resy, device=device)
 res_theta = torch.tensor(res_theta, device=device)
+data_x_velocity = []
+data_y_velocity = []
+data_theta_velocity = []
+for i in range(1, len(pre_data)):
+    data_x_velocity.append((pre_data[i][0] - pre_data[i - 1][0]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+    data_y_velocity.append((pre_data[i][1] - pre_data[i - 1][1]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+    if abs(pre_data[i][2] - pre_data[i - 1][2]) > pi:
+        data_theta_velocity.append(
+    (pre_data[i][2] - np.sign(pre_data[i][2]) * pi) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+else:
+        data_theta_velocity.append((pre_data[i][2] - pre_data[i - 1][2]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
 plt.figure()
 plt.scatter(data[1:, 0].cpu().numpy(), data[1:, 1].cpu().numpy(), color='g', label='raw data', s=5)
 plt.scatter(resx.cpu().numpy(), resy.cpu().numpy(), color='b', label='EKF', s=5)
@@ -175,4 +174,5 @@ plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=
 plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
 plt.legend()
 plt.show()
+'''
 
