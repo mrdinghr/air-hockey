@@ -121,6 +121,12 @@ class AirHockeyTable:
                     self.m_jacCollision[5][5] = 1 / 3
                     self.m_jacCollision = self.m_jacCollision
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
+                    if theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt > pi:
+                        cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * (dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)) * self.m_dt - 2 * pi
+                    elif theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt < -pi:
+                        cur_state[4] = 2 * pi + theta + s * dtheta * self.m_dt + (1 - s) * (dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)) * self.m_dt
+                    else:
+                        cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * (dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)) * self.m_dt
                 else:
                     # velocity on next time step with sliding
                     slideDir = (vtScalar + dtheta * self.m_puckRadius) / torch.abs(vtScalar + dtheta * self.m_puckRadius)
@@ -137,14 +143,23 @@ class AirHockeyTable:
                     self.m_jacCollision[5][3] = self.m_jacCollision[2][3]*2 / self.m_puckRadius
                     self.m_jacCollision = self.m_jacCollision
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
+                    if theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt > pi:
+                        cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * (dtheta + 2 * self.m_rimFriction * slideDir * (
+                            1 + self.m_e) * vnSCalar / self.m_puckRadius) * self.m_dt - 2 * pi
+                    elif theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt < -pi:
+                        cur_state[4] = 2 * pi + theta + s * dtheta * self.m_dt + (1 - s) * (dtheta + 2 * self.m_rimFriction * slideDir * (
+                            1 + self.m_e) * vnSCalar / self.m_puckRadius) * self.m_dt
+                    else:
+                        cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * (dtheta + 2 * self.m_rimFriction * slideDir * (
+                            1 + self.m_e) * vnSCalar / self.m_puckRadius) * self.m_dt
                 cur_state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
-                cur_state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
-                if theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt > pi:
-                    cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt - 2*pi
-                elif theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt < -pi:
-                    cur_state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
-                else:
-                    cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
+                cur_state[0:2] = p + s * u + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
+                # if theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt > pi:
+                #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt - 2*pi
+                # elif theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt < -pi:
+                #     cur_state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
+                # else:
+                #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
                 return True, cur_state, jacobian, False
         return False, cur_state, torch.eye(6, device=device), False
 

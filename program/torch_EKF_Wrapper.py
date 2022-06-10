@@ -50,27 +50,26 @@ class air_hockey_EKF:
         self.P = (torch.eye(6, device=device) - K @ self.H) @ self.P
 
 
-'''
 # test for torch_EKF_Wrapper
 # tableDamping = 0.001
 # tableFriction = 0.001
 # tableRestitution = 0.7424
-system = torch_air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
+system = torch_air_hockey_baseline.SystemModel(tableDamping=0.375, tableFriction=0.125, tableLength=1.948, tableWidth=1.038,
                                          goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
-                                         tableRes=0.7424, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
+                                         tableRes=0.6749999523162842, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
 table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                           restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
+                                           restitution=0.6749999523162842, rimFriction=0.1418, dt=1 / 120)
 R = torch.zeros((3, 3), device=device)
 R[0][0] = 2.5e-7
 R[1][1] = 2.5e-7
 R[2][2] = 9.1e-3
 Q = torch.zeros((6, 6), device=device)
 Q[0][0] = Q[1][1] = 2e-10
-Q[2][2] = Q[3][3] = 0.01
+Q[2][2] = Q[3][3] = 1e-7
 Q[4][4] = 1.0e-2
 Q[5][5] = 1.0e-1
 P = torch.eye(6, device=device) * 0.01
-pre_data = np.load("example_data.npy")
+pre_data = np.load("example_data2.npy")
 data = []
 for i in range(1, len(pre_data)):
     if abs(pre_data[i][0] - pre_data[i - 1][0]) < 0.005 and abs(pre_data[i][1] - pre_data[i - 1][1]) < 0.005:
@@ -101,6 +100,8 @@ time_EKF = [1/120]
 j = 1
 length = len(data)-1
 i = 0
+evaluation = 0
+num_evaluation = 0
 while j < length:
     i += 1
     time_EKF.append((i + 1) / 120)
@@ -112,11 +113,15 @@ while j < length:
     if (i-0.2) / 120 < data[j+1][-1]-data[1][-1] < (i+0.2) / 120:
         puck_EKF.update(data[j + 1][0:3])
         j += 1
+        sign, logdet = torch.linalg.slogdet(puck_EKF.S)
+        num_evaluation += 1
+        evaluation += sign * torch.exp(logdet) + puck_EKF.y.T @ torch.linalg.inv(puck_EKF.S) @ puck_EKF.y
     elif data[j+1][-1]-data[1][-1] <= (i-0.2) / 120:
         j += 1
         puck_EKF.state = puck_EKF.predict_state
     else:
         puck_EKF.state = puck_EKF.predict_state
+print(evaluation / num_evaluation)
 resx = torch.tensor(resx, device=device)
 resy = torch.tensor(resy, device=device)
 res_theta = torch.tensor(res_theta, device=device)
@@ -174,5 +179,5 @@ plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=
 plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
 plt.legend()
 plt.show()
-'''
+
 

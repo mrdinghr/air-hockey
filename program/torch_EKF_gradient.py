@@ -1,6 +1,7 @@
 import torch
 import torch_air_hockey_baseline
 from torch_EKF_Wrapper import air_hockey_EKF
+from matplotlib import pyplot as plt
 from math import pi
 import numpy as np
 device = torch.device("cuda")
@@ -61,7 +62,6 @@ class EKFGradient(torch.nn.Module):
         self.Q[4][4] = self.covariance_params[5]
         self.Q[5][5] = self.covariance_params[6]
         self.P = torch.eye(6, device=device) * 0.01
-        self.evaluation = 0
 
         self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
 
@@ -71,7 +71,8 @@ class EKFGradient(torch.nn.Module):
 
     def calculate_loss(self, raw_data, state):
         self.puck_EKF.init_state(state)
-        data = raw_data[1:]
+        data = raw_data
+        evaluation = 0
         num_evaluation = 0  # record the update time to normalize
         # evaluation = torch.tensor([0], device=device, dtype=float, requires_grad=True)
         # evaluation = torch.zeros(len(data)-2, dtype=float, device=device)   # calculate log_Ly_theta
@@ -86,43 +87,46 @@ class EKFGradient(torch.nn.Module):
                 self.puck_EKF.update(data[j + 1][0:3])
                 j = j + 1
                 sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
-                cur_log = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
+                # cur_log = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
                 # evaluation[j-2] = cur_log
                 # evaluation =torch.cat((evaluation, torch.tensor([cur_log], device=device)))
-                self.evaluation += sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
+                evaluation = evaluation + sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
                 num_evaluation += 1
             elif data[j + 1][-1] - data[1][-1] <= (i - 0.2) / 120:
                 j = j + 1
                 self.puck_EKF.state = self.puck_EKF.predict_state
             else:
                 self.puck_EKF.state = self.puck_EKF.predict_state
-        cur_loss = self.evaluation / num_evaluation
+        cur_loss = evaluation / num_evaluation
         # evaluation.requires_grad
         # evaluation.retain_grad()
         # loss = torch.mean(evaluation)
         # loss = evaluation / num_evaluation
-        cur_loss.requires_grad_(True)
+        # cur_loss.requires_grad_(True)
         return cur_loss
 
 
 init_params = torch.Tensor([0.125, 0.375, 0.6749999523162842])
-covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 3e-7, 1.0e-2, 1.0e-1])
+covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
 model = EKFGradient(init_params, covariance_params)
 
 raw_data = np.load("example_data2.npy")
 raw_data, init_state = preprocess_data(raw_data)
 
 # model.to(device)
-learning_rate = 1e-4
+learning_rate = 1e-7
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 # use autograd to optimize parameters
-for t in range(10):
+for t in range(50):
     loss = model.calculate_loss(raw_data, init_state)
+    plt.scatter(t, loss.item(), color='b')
     print(t, loss)
+    print('dyna_params:')
     print(model.get_parameter('dyna_params'))
     # print(model.get_parameter('covparams'))
     optimizer.zero_grad()
-    loss.backward()
+    loss.backward(retain_graph=True)
+    print('grad:')
     print(model.get_parameter('dyna_params').grad)
     # print(covariance_params.grad)
     optimizer.step()
@@ -130,3 +134,5 @@ for t in range(10):
         p.data.clamp_(0, 1)
     # for p in model.get_parameter('covparams'):
     #     p.data.clamp_(-100, 100)
+plt.title('loss curve')
+plt.show()

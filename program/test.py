@@ -12,7 +12,7 @@ for i in range(3):
     sum +=1
 c = torch.sum(a)/sum
 c.backward()
-print(x.grad)
+print('grad: {:.3f}'.format(x.grad.item()))
 
 
 # table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
