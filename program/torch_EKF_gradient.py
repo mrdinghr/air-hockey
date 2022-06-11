@@ -8,32 +8,30 @@ device = torch.device("cuda")
 table_length = 1.948
 
 
-def preprocess_data(raw_data):
-    pre_data = []
-    for j in range(1, len(raw_data)):
-        if abs(raw_data[j][0] - raw_data[j - 1][0]) < 0.005 and abs(raw_data[j][1] - raw_data[j - 1][1]) < 0.005:
+def preprocess_data(pre_data):
+    data = []
+    for i in range(1, len(pre_data)):
+        if abs(pre_data[i][0] - pre_data[i - 1][0]) < 0.005 and abs(pre_data[i][1] - pre_data[i - 1][1]) < 0.005:
             continue
-        pre_data.append(raw_data[j])
-    pre_data = torch.tensor(pre_data, device=device)
-    for m in pre_data:
-        m[0] = m[0] + table_length / 2
+        data.append(pre_data[i])
+    for i_data in data:
+        i_data[0] += table_length / 2
+    data = torch.tensor(data, device=device).float()
     # EKF initialized state
-    state_dx = ((pre_data[1][0] - pre_data[0][0]) / (pre_data[1][3] - pre_data[0][3]) + (
-            pre_data[2][0] - pre_data[1][0]) / (
-                        pre_data[2][3] - pre_data[1][3]) + (pre_data[3][0] - pre_data[2][0]) / (
-                        pre_data[3][3] - pre_data[2][3])) / 3
-    state_dy = ((pre_data[1][1] - pre_data[0][1]) / (pre_data[1][3] - pre_data[0][3]) + (
-            pre_data[2][1] - pre_data[1][1]) / (
-                        pre_data[2][3] - pre_data[1][3]) + (pre_data[3][1] - pre_data[2][1]) / (
-                        pre_data[3][3] - pre_data[2][3])) / 3
-    state_dtheta = ((pre_data[1][2] - pre_data[0][2]) / (pre_data[1][3] - pre_data[0][3]) + (
-            pre_data[2][2] - pre_data[1][2]) / (
-                            pre_data[2][3] - pre_data[1][3]) + (pre_data[3][2] - pre_data[2][2]) / (
-                            pre_data[3][3] - pre_data[2][3])) / 3
-    state = torch.tensor([pre_data[1][0], pre_data[1][1], state_dx, state_dy, pre_data[1][2], state_dtheta],
-                         device=device)
-    pre_data = pre_data.float()
-    return pre_data, state
+    state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
+            data[2][0] - data[1][0]) / (
+                        data[2][3] - data[1][3]) + (data[3][0] - data[2][0]) / (
+                        data[3][3] - data[2][3])) / 3
+    state_dy = ((data[1][1] - data[0][1]) / (data[1][3] - data[0][3]) + (
+            data[2][1] - data[1][1]) / (
+                        data[2][3] - data[1][3]) + (data[3][1] - data[2][1]) / (
+                        data[3][3] - data[2][3])) / 3
+    state_dtheta = ((data[1][2] - data[0][2]) / (data[1][3] - data[0][3]) + (
+            data[2][2] - data[1][2]) / (
+                            data[2][3] - data[1][3]) + (data[3][2] - data[2][2]) / (
+                            data[3][3] - data[2][3])) / 3
+    state = torch.tensor([data[1][0], data[1][1], state_dx, state_dy, data[1][2], state_dtheta], device=device)
+    return data, state
 
 
 class EKFGradient(torch.nn.Module):
@@ -83,7 +81,7 @@ class EKFGradient(torch.nn.Module):
             i = i + 1
             self.puck_EKF.predict()
             # check whether data is recorded at right time
-            if (i - 0.2) / 120 < data[j][-1] - data[0][-1] < (i + 0.2) / 120:
+            if (i - 0.2) / 120 < data[j+1][-1] - data[1][-1] < (i + 0.2) / 120:
                 self.puck_EKF.update(data[j + 1][0:3])
                 j = j + 1
                 sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
@@ -109,10 +107,8 @@ class EKFGradient(torch.nn.Module):
 init_params = torch.Tensor([0.125, 0.375, 0.6749999523162842])
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
 model = EKFGradient(init_params, covariance_params)
-
-raw_data = np.load("example_data2.npy")
-raw_data, init_state = preprocess_data(raw_data)
-
+pre_data = np.load("example_data2.npy")
+raw_data, init_state = preprocess_data(pre_data)
 # model.to(device)
 learning_rate = 1e-7
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)

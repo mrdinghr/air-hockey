@@ -50,6 +50,7 @@ class air_hockey_EKF:
         self.P = (torch.eye(6, device=device) - K @ self.H) @ self.P
 
 
+'''
 # test for torch_EKF_Wrapper
 # tableDamping = 0.001
 # tableFriction = 0.001
@@ -179,5 +180,5 @@ plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=
 plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
 plt.legend()
 plt.show()
-
+'''
 
