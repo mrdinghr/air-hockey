@@ -49,17 +49,31 @@ class air_hockey_EKF:
         self.state = self.predict_state + K @ self.y
         self.P = (torch.eye(6, device=device) - K @ self.H) @ self.P
 
+    def refresh(self, P, Q, R):
+        self.P = P
+        self.Q = Q
+        self.R = R
+        self.F = None
+        self.predict_state = None
+        self.y = None
+        self.S = None
+        self.score = False
+        self.has_collision = False
+        self.H = torch.zeros((3, 6), device=device)
+        self.H[0][0] = self.H[1][1] = self.H[2][4] = 1
+        self.state = None
 
-'''
+
 # test for torch_EKF_Wrapper
 # tableDamping = 0.001
 # tableFriction = 0.001
 # tableRestitution = 0.7424
-system = torch_air_hockey_baseline.SystemModel(tableDamping=0.375, tableFriction=0.125, tableLength=1.948, tableWidth=1.038,
+para = [0.125, 0.375, 0.6749999523162842]
+system = torch_air_hockey_baseline.SystemModel(tableDamping=para[1], tableFriction=para[0], tableLength=1.948, tableWidth=1.038,
                                          goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
-                                         tableRes=0.6749999523162842, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
+                                         tableRes=para[2], malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
 table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                           restitution=0.6749999523162842, rimFriction=0.1418, dt=1 / 120)
+                                           restitution=para[2], rimFriction=0.1418, dt=1 / 120)
 R = torch.zeros((3, 3), device=device)
 R[0][0] = 2.5e-7
 R[1][1] = 2.5e-7
@@ -180,5 +194,5 @@ plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=
 plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
 plt.legend()
 plt.show()
-'''
+
 
