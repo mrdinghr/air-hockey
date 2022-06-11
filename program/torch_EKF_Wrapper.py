@@ -57,6 +57,7 @@ class air_hockey_EKF:
         self.predict_state = None
         self.y = None
         self.S = None
+        self.u = 1/120
         self.score = False
         self.has_collision = False
         self.H = torch.zeros((3, 6), device=device)
@@ -64,11 +65,12 @@ class air_hockey_EKF:
         self.state = None
 
 
+'''
 # test for torch_EKF_Wrapper
 # tableDamping = 0.001
 # tableFriction = 0.001
 # tableRestitution = 0.7424
-para = [0.125, 0.375, 0.6749999523162842]
+para = [0.10608561, 0.34085548, 0.78550678]
 system = torch_air_hockey_baseline.SystemModel(tableDamping=para[1], tableFriction=para[0], tableLength=1.948, tableWidth=1.038,
                                          goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
                                          tableRes=para[2], malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
@@ -194,5 +196,5 @@ plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=
 plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
 plt.legend()
 plt.show()
-
+'''
 

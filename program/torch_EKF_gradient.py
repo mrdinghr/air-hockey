@@ -6,6 +6,7 @@ from math import pi
 import numpy as np
 device = torch.device("cuda")
 table_length = 1.948
+torch.set_printoptions(precision=8)
 
 
 def preprocess_data(pre_data):
@@ -115,16 +116,16 @@ optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 # use autograd to optimize parameters
 for t in range(50):
     loss = model.calculate_loss(raw_data, init_state)
+    model.puck_EKF.refresh(model.P, model.Q, model.R)
     optimizer.zero_grad()
     loss.backward(retain_graph=True)
-    model.puck_EKF.refresh(model.P, model.Q, model.R)
     plt.scatter(t, loss.item(), color='b')
     print(t, loss)
     print('dyna_params:')
     print(model.get_parameter('dyna_params'))
     # print(model.get_parameter('covparams'))
-    print('grad:')
-    print(model.get_parameter('dyna_params').grad)
+    # print('grad:')
+    # print(model.get_parameter('dyna_params').grad)
     # print(covariance_params.grad)
     optimizer.step()
     for p in model.get_parameter('dyna_params'):
