@@ -36,6 +36,23 @@ def preprocess_data(pre_data):
     return data, state
 
 
+def calculate_init_state(data):
+    state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
+            data[2][0] - data[1][0]) / (
+                        data[2][3] - data[1][3]) + (data[3][0] - data[2][0]) / (
+                        data[3][3] - data[2][3])) / 3
+    state_dy = ((data[1][1] - data[0][1]) / (data[1][3] - data[0][3]) + (
+            data[2][1] - data[1][1]) / (
+                        data[2][3] - data[1][3]) + (data[3][1] - data[2][1]) / (
+                        data[3][3] - data[2][3])) / 3
+    state_dtheta = ((data[1][2] - data[0][2]) / (data[1][3] - data[0][3]) + (
+            data[2][2] - data[1][2]) / (
+                            data[2][3] - data[1][3]) + (data[3][2] - data[2][2]) / (
+                            data[3][3] - data[2][3])) / 3
+    state = torch.tensor([data[1][0], data[1][1], state_dx, state_dy, data[1][2], state_dtheta], device=device)
+    return state
+
+
 class EKFGradient(torch.nn.Module):
     def __init__(self, params, covariance_params):
         super(EKFGradient, self).__init__()
@@ -117,7 +134,8 @@ optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
 # use autograd to optimize parameters
 for t in range(200):
     batch_start = random.randint(0, len(raw_data)-300)
-    loss = model.calculate_loss(raw_data[batch_start:batch_start+100, :], init_state)
+    init_state = calculate_init_state(raw_data[batch_start:batch_start+300, :])
+    loss = model.calculate_loss(raw_data[batch_start:batch_start+300, :], init_state)
     model.puck_EKF.refresh(model.P, model.Q, model.R)
     optimizer.zero_grad()
     loss.backward(retain_graph=True)
