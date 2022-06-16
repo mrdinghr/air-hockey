@@ -126,21 +126,29 @@ class EKFGradient(torch.nn.Module):
 init_params = torch.Tensor([0.125, 0.375, 0.6749999523162842])
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
 model = EKFGradient(init_params, covariance_params)
-pre_data = np.load("example_data2.npy")
-raw_data, init_state = preprocess_data(pre_data)
-# model.to(device)
-learning_rate = 1e-7
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+all_data = np.load('total_data.npy', allow_pickle=True)
+all_data = all_data[0:5]
+# pre_data = np.load("example_data2.npy")
+# raw_data, init_state = preprocess_data(pre_data)
+learning_rate = 1e-5
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+raw_data = []
+init_state = []
+for t in range(len(all_data)):
+    cur_raw, cur_init = preprocess_data(all_data[t])
+    raw_data.append(cur_raw)
+    init_state.append(cur_init)
 # use autograd to optimize parameters
-for t in range(200):
-    batch_start = random.randint(0, len(raw_data)-300)
-    init_state = calculate_init_state(raw_data[batch_start:batch_start+300, :])
-    loss = model.calculate_loss(raw_data[batch_start:batch_start+300, :], init_state)
-    model.puck_EKF.refresh(model.P, model.Q, model.R)
+for t in range(5):
+    loss = torch.zeros(len(all_data), device=device)
+    for i in range(len(all_data)):
+        loss[i] = model.calculate_loss(raw_data[i], init_state[i])
+        model.puck_EKF.refresh(model.P, model.Q, model.R)
     optimizer.zero_grad()
-    loss.backward(retain_graph=True)
-    plt.scatter(t, loss.item(), color='b')
-    print(t, loss, batch_start)
+    total_loss = torch.sum(loss)
+    total_loss.backward(retain_graph=True)
+    plt.scatter(t, total_loss.item(), color='b')
+    print(t, total_loss)
     print('dyna_params:')
     print(model.get_parameter('dyna_params'))
     # print(model.get_parameter('covparams'))

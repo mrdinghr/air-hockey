@@ -36,7 +36,7 @@ class air_hockey_EKF:
         if self.score or self.score_time != 0:
             self.score_time += 1
             self.P = self.system.F @ self.P @ self.system.F.T + self.Q_score + self.Q
-            if self.score_time == 10:
+            if self.score_time == 5:
                 self.score_time = 0
         else:
             self.P = self.system.F @ self.P @ self.system.F.T + self.Q
@@ -76,7 +76,7 @@ class air_hockey_EKF:
         self.state = None
 
 
-
+'''
 # test for torch_EKF_Wrapper
 # tableDamping = 0.001
 # tableFriction = 0.001
@@ -97,7 +97,8 @@ Q[2][2] = Q[3][3] = 1e-7
 Q[4][4] = 1.0e-2
 Q[5][5] = 1e-1
 P = torch.eye(6, device=device) * 0.01
-pre_data = np.load("example_data.npy")
+pre_data = np.load("total_data.npy", allow_pickle=True)
+pre_data = pre_data[0]
 data = []
 for i in range(1, len(pre_data)):
     if abs(pre_data[i][0] - pre_data[i - 1][0]) < 0.005 and abs(pre_data[i][1] - pre_data[i - 1][1]) < 0.005:
@@ -207,5 +208,5 @@ plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=
 plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
 plt.legend()
 plt.show()
-
+'''
 
