@@ -3,17 +3,12 @@ import torch_air_hockey_baseline
 from torch_EKF_Wrapper import air_hockey_EKF
 from math import pi
 import numpy as np
+from matplotlib import pyplot as plt
 
-a = torch.tensor([0])
-x = torch.tensor([1.], requires_grad=True)
-sum = 0
-for i in range(3):
-    a = torch.cat((a, x))
-    sum +=1
-c = torch.sum(a)/sum
-c.backward()
-print('grad: {:.3f}'.format(x.grad.item()))
-
+result = np.load('total_data.npy', allow_pickle=True)
+a = result[0]
+plt.plot(result[20][:, 0], result[20][:, 1])
+plt.show()
 
 # table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
 #                                            restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
