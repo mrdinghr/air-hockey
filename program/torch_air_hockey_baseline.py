@@ -76,11 +76,12 @@ class AirHockeyTable:
     def apply_collision(self, state):
         p = state[0:2]
         vel = state[2:4]
-        # jacobian = torch.eye(6, device=device)
-        # if torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
-        #     return False, state, jacobian, True
-        # elif torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
-        #     return False, state, jacobian, True
+        jacobian = torch.eye(6, device=device)
+        score = False
+        if torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
+            score = True
+        elif torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
+            score =True
         u = vel * self.m_dt
         i = 0
         cur_state = torch.zeros(6, device=device)
@@ -160,8 +161,8 @@ class AirHockeyTable:
                 #     cur_state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
                 # else:
                 #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
-                return True, cur_state, jacobian, False
-        return False, cur_state, torch.eye(6, device=device), False
+                return True, cur_state, jacobian, score
+        return False, cur_state, torch.eye(6, device=device), score
 
 
 class SystemModel:

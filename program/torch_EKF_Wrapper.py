@@ -12,6 +12,9 @@ class air_hockey_EKF:
         self.system = system
         self.table = table
         self.Q = Q
+        self.Q_score = torch.zeros((6, 6), device=device)
+        self.Q_score[2][2] = 1
+        self.Q_score[3][3] = 1
         self.R = R
         self.P = P
         self.u = u
@@ -23,13 +26,21 @@ class air_hockey_EKF:
         self.H[0][0] = self.H[1][1] = self.H[2][4] = 1
         self.y = None
         self.S = None
+        self.score_time = 0
 
     def init_state(self, state):
         self.state = state
 
     def predict(self):
-        self.P = self.system.F @ self.P @ self.system.F.T + self.Q
         self.has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
+        if self.score or self.score_time != 0:
+            self.score_time += 1
+            self.P = self.system.F @ self.P @ self.system.F.T + self.Q_score + self.Q
+            if self.score_time == 10:
+                self.score_time = 0
+        else:
+            self.P = self.system.F @ self.P @ self.system.F.T + self.Q
+        # self.P = self.system.F @ self.P @ self.system.F.T + self.Q
         if self.has_collision:
             self.F = jacobian
         else:
@@ -65,7 +76,7 @@ class air_hockey_EKF:
         self.state = None
 
 
-'''
+
 # test for torch_EKF_Wrapper
 # tableDamping = 0.001
 # tableFriction = 0.001
@@ -84,9 +95,9 @@ Q = torch.zeros((6, 6), device=device)
 Q[0][0] = Q[1][1] = 2e-10
 Q[2][2] = Q[3][3] = 1e-7
 Q[4][4] = 1.0e-2
-Q[5][5] = 1.0e-1
+Q[5][5] = 1e-1
 P = torch.eye(6, device=device) * 0.01
-pre_data = np.load("example_data2.npy")
+pre_data = np.load("example_data.npy")
 data = []
 for i in range(1, len(pre_data)):
     if abs(pre_data[i][0] - pre_data[i - 1][0]) < 0.005 and abs(pre_data[i][1] - pre_data[i - 1][1]) < 0.005:
@@ -196,5 +207,5 @@ plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=
 plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
 plt.legend()
 plt.show()
-'''
+
 
