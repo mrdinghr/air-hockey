@@ -4,6 +4,7 @@ from torch_EKF_Wrapper import air_hockey_EKF
 from matplotlib import pyplot as plt
 from math import pi
 import numpy as np
+import time
 import random
 device = torch.device("cuda")
 table_length = 1.948
@@ -89,10 +90,10 @@ class EKFGradient(torch.nn.Module):
     def calculate_loss(self, raw_data, state):
         self.puck_EKF.init_state(state)
         data = raw_data
-        evaluation = 0
-        num_evaluation = 0  # record the update time to normalize
+        # evaluation = 0
+        # num_evaluation = 0  # record the update time to normalize
         # evaluation = torch.tensor([0], device=device, dtype=float, requires_grad=True)
-        # evaluation = torch.zeros(len(data)-2, dtype=float, device=device)   # calculate log_Ly_theta
+        evaluation = torch.zeros(len(data)-2, dtype=float, device=device)   # calculate log_Ly_theta
         # evaluation = 0
         j = 1
         i = 0
@@ -104,23 +105,23 @@ class EKFGradient(torch.nn.Module):
                 self.puck_EKF.update(data[j + 1][0:3])
                 j = j + 1
                 sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
-                # cur_log = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
-                # evaluation[j-2] = cur_log
+                cur_log = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
+                evaluation[j-2] = cur_log
                 # evaluation =torch.cat((evaluation, torch.tensor([cur_log], device=device)))
-                evaluation = evaluation + sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
-                num_evaluation += 1
+                # evaluation = evaluation + sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
+                # num_evaluation += 1
             elif data[j + 1][-1] - data[1][-1] <= (i - 0.2) / 120:
                 j = j + 1
                 self.puck_EKF.state = self.puck_EKF.predict_state
             else:
                 self.puck_EKF.state = self.puck_EKF.predict_state
-        cur_loss = evaluation / num_evaluation
+        # cur_loss = evaluation / num_evaluation
         # evaluation.requires_grad
         # evaluation.retain_grad()
         # loss = torch.mean(evaluation)
         # loss = evaluation / num_evaluation
         # cur_loss.requires_grad_(True)
-        return cur_loss
+        return torch.mean(evaluation)
 
 
 init_params = torch.Tensor([0.125, 0.375, 0.6749999523162842])
@@ -144,9 +145,12 @@ for t in range(5):
     for i in range(len(all_data)):
         loss[i] = model.calculate_loss(raw_data[i], init_state[i])
         model.puck_EKF.refresh(model.P, model.Q, model.R)
+    start = time.time()
     optimizer.zero_grad()
     total_loss = torch.sum(loss)
     total_loss.backward(retain_graph=True)
+    end = time.time()
+    print('time'+str(end-start))
     plt.scatter(t, total_loss.item(), color='b')
     print(t, total_loss)
     print('dyna_params:')
