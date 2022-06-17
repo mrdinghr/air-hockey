@@ -5,10 +5,29 @@ from math import pi
 import numpy as np
 from matplotlib import pyplot as plt
 
+table_length = 1.948
 result = np.load('total_data.npy', allow_pickle=True)
-a = result[0]
-plt.plot(result[20][:, 0], result[20][:, 1])
-plt.show()
+result_clean = [[] for i in range(len(result))]
+for i in range(len(result)):
+    for j in range(1, len(result[i])):
+        if abs(result[i][j][0] - result[i][j - 1][0]) < 0.005 and abs(result[i][j][1] - result[i][j - 1][1]) < 0.005:
+            continue
+        result_clean[i].append(result[i][j])
+result_clean = np.array(result_clean)
+for i in range(len(result_clean)):
+    for i_data in result_clean[i]:
+        i_data[0] += table_length / 2
+for i in range(len(result_clean)):
+    result_clean[i] = np.array(result_clean[i])
+    plt.subplot(1, 2, 1)
+    plt.plot(result[i][:, 1])
+    plt.subplot(1, 2, 2)
+    plt.plot(result_clean[i][:, 1])
+    print(result_clean[i].shape, result[i].shape)
+    plt.show()
+# a = result[0]
+# plt.plot(result[20][:, 0], result[20][:, 1])
+# plt.show()
 
 # table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
 #                                            restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
