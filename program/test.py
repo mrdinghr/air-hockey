@@ -19,12 +19,13 @@ for i in range(len(result_clean)):
         i_data[0] += table_length / 2
 for i in range(len(result_clean)):
     result_clean[i] = np.array(result_clean[i])
-    plt.subplot(1, 2, 1)
-    plt.plot(result[i][:, 1])
-    plt.subplot(1, 2, 2)
-    plt.plot(result_clean[i][:, 1])
-    print(result_clean[i].shape, result[i].shape)
-    plt.show()
+np.save('total_data_after_clean', result_clean)
+    # plt.subplot(1, 2, 1)
+    # plt.plot(result[i][:, 1])
+    # plt.subplot(1, 2, 2)
+    # plt.plot(result_clean[i][:, 1])
+    # print(result_clean[i].shape, result[i].shape)
+    # plt.show()
 # a = result[0]
 # plt.plot(result[20][:, 0], result[20][:, 1])
 # plt.show()
