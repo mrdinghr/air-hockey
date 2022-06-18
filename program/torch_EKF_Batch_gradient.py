@@ -97,11 +97,12 @@ class EKFGradient(torch.nn.Module):
 init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
 model = EKFGradient(init_params, covariance_params)
-learning_rate = 1e-5
+learning_rate = 1e-3
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 Batch_size = 50
 for t in range(5):
     print(str(t)+' epoch')
+    optimizer.zero_grad()
     loss_list = model.make_loss_list(data_after_clean)
     dataset_loss = Data.TensorDataset(loss_list)
     loader = Data.DataLoader(dataset=dataset_loss, batch_size=Batch_size, shuffle=False)
@@ -114,4 +115,5 @@ for t in range(5):
         print('params '+str(model.get_parameter('dyna_params').data))
         print('grad '+str(model.get_parameter('dyna_params').grad))
         optimizer.step()
+
 

@@ -19,7 +19,9 @@ class Klinear(torch.nn.Module):
         self.register_parameter('k', torch.nn.Parameter(para))
         self.a = para
     def make_loss_list(self, y, x):
-        return y - self.get_parameter('k') * x
+        a = self.get_parameter('k')*self.get_parameter('k')
+        loss = y - a * x
+        return loss
 
 
 model = Klinear(k)
