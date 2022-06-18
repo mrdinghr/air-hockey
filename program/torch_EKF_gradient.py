@@ -60,7 +60,6 @@ class EKFGradient(torch.nn.Module):
         self.register_parameter('dyna_params', torch.nn.Parameter(params))
         self.covariance_params = covariance_params
         # self.register_parameter('covariance_params', covariance_params)
-
         self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1], tableFriction=self.dyna_params[0],
                                                        tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
                                                        puckRadius=0.03165, malletRadius=0.04815, tableRes=self.dyna_params[2],
@@ -92,8 +91,8 @@ class EKFGradient(torch.nn.Module):
         data = raw_data
         # evaluation = 0
         # num_evaluation = 0  # record the update time to normalize
-        # evaluation = torch.tensor([0], device=device, dtype=float, requires_grad=True)
-        evaluation = torch.zeros(len(data)-2, dtype=float, device=device)   # calculate log_Ly_theta
+        evaluation = torch.tensor([0], device=device, dtype=float, requires_grad=True)
+        # evaluation = torch.zeros(len(data)-2, dtype=float, device=device)   # calculate log_Ly_theta
         # evaluation = 0
         j = 1
         i = 0
@@ -105,9 +104,10 @@ class EKFGradient(torch.nn.Module):
                 self.puck_EKF.update(data[j + 1][0:3])
                 j = j + 1
                 sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
-                cur_log = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
-                evaluation[j-2] = cur_log
-                # evaluation =torch.cat((evaluation, torch.tensor([cur_log], device=device)))
+                cur_point_loss = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
+                # evaluation[j-2] = cur_log
+                # evaluation = torch.cat((evaluation, torch.tensor([cur_point_loss], device=device)))
+                evaluation = torch.cat((evaluation, torch.atleast_1d(cur_point_loss)))
                 # evaluation = evaluation + sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
                 # num_evaluation += 1
             elif data[j + 1][-1] - data[1][-1] <= (i - 0.2) / 120:

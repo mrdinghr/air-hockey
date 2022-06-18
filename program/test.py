@@ -4,7 +4,17 @@ from torch_EKF_Wrapper import air_hockey_EKF
 from math import pi
 import numpy as np
 from matplotlib import pyplot as plt
-
+device = torch.device("cuda")
+a = torch.tensor([0], device=device)
+x = torch.tensor([1.], requires_grad=True, device=device)
+for i in range(3):
+    b = x + 1
+    a = torch.cat((a, b))
+c = torch.mean(a)
+c.backward()
+print(x.grad)
+'''
+#  clean all trajectory data: throw no move part
 table_length = 1.948
 result = np.load('total_data.npy', allow_pickle=True)
 result_clean = [[] for i in range(len(result))]
@@ -20,12 +30,10 @@ for i in range(len(result_clean)):
 for i in range(len(result_clean)):
     result_clean[i] = np.array(result_clean[i])
 np.save('total_data_after_clean', result_clean)
-    # plt.subplot(1, 2, 1)
-    # plt.plot(result[i][:, 1])
-    # plt.subplot(1, 2, 2)
-    # plt.plot(result_clean[i][:, 1])
-    # print(result_clean[i].shape, result[i].shape)
-    # plt.show()
+'''
+
+
+
 # a = result[0]
 # plt.plot(result[20][:, 0], result[20][:, 1])
 # plt.show()

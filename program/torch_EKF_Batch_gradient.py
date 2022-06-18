@@ -9,18 +9,6 @@ table_length = 1.948
 data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
 data_after_clean = data_after_clean[0:5]
 
-'''
-input: list of trajectories 
-size: n*m*4 n:num of trajectories m:num of points for each trajectory  4: x y theta time
-output: list of loss for each point size:n*(m-1)
-'''
-def make_loss_list(data_set, model):
-    length = len(data_set)
-    points_num = 0
-    for i in range(length):
-        points_num += len(data_set[i])
-    list_size = points_num - 2*length
-
 
 def calculate_init_state(data):
     state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
@@ -45,7 +33,6 @@ class EKFGradient(torch.nn.Module):
         self.register_parameter('dyna_params', torch.nn.Parameter(params))
         self.covariance_params = covariance_params
         # self.register_parameter('covariance_params', covariance_params)
-
         self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1],
                                                             tableFriction=self.dyna_params[0],
                                                             tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
@@ -69,3 +56,22 @@ class EKFGradient(torch.nn.Module):
         self.Q[5][5] = self.covariance_params[6]
         self.P = torch.eye(6, device=device) * 0.01
         self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
+
+    '''
+    input: list of trajectories 
+    size: n*m*4 n:num of trajectories m:num of points for each trajectory  4: x y theta time
+    output: list of loss for each point size:n*(m-1)
+    '''
+    def make_loss_list(self, data_set):
+        length = len(data_set)
+        points_num = 0
+        for i in range(length):
+            points_num += len(data_set[i])
+        list_size = points_num - 2 * length
+        loss_list = torch.zeros(list_size)
+        loss_list_index = 0
+        for i in range(length):
+            self.puck_EKF.refresh(self.P, self.Q, self.R)
+            self.puck_EKF.init_state(calculate_init_state(data_set[i]))
+
+        return loss_list
