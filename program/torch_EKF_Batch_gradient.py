@@ -111,5 +111,7 @@ for t in range(5):
         sum_loss_batch.backward(retain_graph=True)
         # torch.mean(loss_batch[0]).backward(retain_graph=True)
         print('loss '+str(sum_loss_batch.data))
-        print(model.get_parameter('dyna_params').grad)
+        print('params '+str(model.get_parameter('dyna_params').data))
+        print('grad '+str(model.get_parameter('dyna_params').grad))
         optimizer.step()
+

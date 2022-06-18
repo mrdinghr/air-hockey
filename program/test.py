@@ -4,15 +4,40 @@ from torch_EKF_Wrapper import air_hockey_EKF
 from math import pi
 import numpy as np
 from matplotlib import pyplot as plt
+import torch.utils.data as Data
+
+torch.set_printoptions(precision=8)
 device = torch.device("cuda")
-a = torch.tensor([0], device=device)
-x = torch.tensor([1.], requires_grad=True, device=device)
-for i in range(3):
-    b = x + 1
-    a = torch.cat((a, b))
-c = torch.mean(a)
-c.backward()
-print(x.grad)
+y = torch.tensor([0, 3, 6, 9, 12])
+x = torch.tensor([0, 1, 2, 3, 4])
+k = torch.tensor([2.], requires_grad=True)
+
+
+class Klinear(torch.nn.Module):
+    def __init__(self, para):
+        super(Klinear, self).__init__()
+        self.register_parameter('k', torch.nn.Parameter(para))
+        self.a = para
+    def make_loss_list(self, y, x):
+        return y - self.get_parameter('k') * x
+
+
+model = Klinear(k)
+lr = 0.1
+opt = torch.optim.Adam(model.parameters(), lr=lr)
+for t in range(3):
+    print(t)
+    loss_list = model.make_loss_list(y, x)
+    dataset = Data.TensorDataset(loss_list)
+    loader = Data.DataLoader(dataset=dataset, batch_size=2, shuffle=False)
+    for loss_batch in loader:
+        opt.zero_grad()
+        sum_loss = torch.mean(loss_batch[0])
+        sum_loss.backward(retain_graph=True)
+        print(model.get_parameter('k'))
+        print(model.get_parameter('k').grad)
+        opt.step()
+
 '''
 #  clean all trajectory data: throw no move part
 table_length = 1.948
@@ -31,8 +56,6 @@ for i in range(len(result_clean)):
     result_clean[i] = np.array(result_clean[i])
 np.save('total_data_after_clean', result_clean)
 '''
-
-
 
 # a = result[0]
 # plt.plot(result[20][:, 0], result[20][:, 1])

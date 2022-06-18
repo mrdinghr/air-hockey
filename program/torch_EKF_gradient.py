@@ -6,6 +6,7 @@ from math import pi
 import numpy as np
 import time
 import random
+
 device = torch.device("cuda")
 table_length = 1.948
 torch.set_printoptions(precision=8)
@@ -60,12 +61,16 @@ class EKFGradient(torch.nn.Module):
         self.register_parameter('dyna_params', torch.nn.Parameter(params))
         self.covariance_params = covariance_params
         # self.register_parameter('covariance_params', covariance_params)
-        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1], tableFriction=self.dyna_params[0],
-                                                       tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
-                                                       puckRadius=0.03165, malletRadius=0.04815, tableRes=self.dyna_params[2],
-                                                       malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
-        self.table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                                         restitution=self.dyna_params[2], rimFriction=0.1418, dt=1 / 120)
+        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1],
+                                                            tableFriction=self.dyna_params[0],
+                                                            tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
+                                                            puckRadius=0.03165, malletRadius=0.04815,
+                                                            tableRes=self.dyna_params[2],
+                                                            malletRes=0.8, rimFriction=self.dyna_params[3], dt=1 / 120)
+        self.table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
+                                                              puckRadius=0.03165,
+                                                              restitution=self.dyna_params[2],
+                                                              rimFriction=self.dyna_params[3], dt=1 / 120)
 
         self.R = torch.zeros((3, 3), device=device)
         self.R[0][0] = self.covariance_params[0]
@@ -100,11 +105,12 @@ class EKFGradient(torch.nn.Module):
             i = i + 1
             self.puck_EKF.predict()
             # check whether data is recorded at right time
-            if (i - 0.2) / 120 < data[j+1][-1] - data[1][-1] < (i + 0.2) / 120:
+            if (i - 0.2) / 120 < data[j + 1][-1] - data[1][-1] < (i + 0.2) / 120:
                 self.puck_EKF.update(data[j + 1][0:3])
                 j = j + 1
                 sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
-                cur_point_loss = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
+                cur_point_loss = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(
+                    self.puck_EKF.S) @ self.puck_EKF.y
                 # evaluation[j-2] = cur_log
                 # evaluation = torch.cat((evaluation, torch.tensor([cur_point_loss], device=device)))
                 evaluation = torch.cat((evaluation, torch.atleast_1d(cur_point_loss)))
@@ -150,7 +156,7 @@ for t in range(5):
     total_loss = torch.sum(loss)
     total_loss.backward(retain_graph=True)
     end = time.time()
-    print('time'+str(end-start))
+    print('time' + str(end - start))
     plt.scatter(t, total_loss.item(), color='b')
     print(t, total_loss)
     print('dyna_params:')
