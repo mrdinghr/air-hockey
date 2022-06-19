@@ -47,10 +47,7 @@ class air_hockey_EKF:
                 self.predict_state = self.system.f(self.state, self.u)
             self.P = self.F @ self.P @ self.F.T + self.Q
             # self.P = self.P + self.Q + self.predict_state[2]
-
-
         # self.P = self.system.F @ self.P @ self.system.F.T + self.Q
-
 
     def update(self, measure):
         # measurement residual
