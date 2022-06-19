@@ -100,13 +100,13 @@ class AirHockeyTable:
                 state_pre = p + s * u
                 theta_pre = state[4].detach() + s * state[5] * self.m_dt
                 state.detach_()
-                dtheta = state[5]
                 vecT = v / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vecN = torch.zeros(2, device=device)
                 vecN[0] = -v[1] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vecN[1] = v[0] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vtScalar = torch.dot(state[2:4], vecT)
                 vnSCalar = torch.dot(state[2:4], vecN)
+                dtheta = state[5]
                 if torch.abs(vtScalar + self.m_puckRadius * dtheta) < 3 * self.m_rimFriction * (
                         1 + self.m_e) * torch.abs(vnSCalar):
                     # Velocity on next time step without sliding
