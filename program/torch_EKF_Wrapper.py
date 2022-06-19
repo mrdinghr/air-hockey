@@ -35,17 +35,22 @@ class air_hockey_EKF:
         self.has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
         if self.score or self.score_time != 0:
             self.score_time += 1
-            self.P = self.system.F @ self.P @ self.system.F.T + self.Q_score + self.Q
+            self.P = self.P + self.Q_score + self.Q
+            self.F = jacobian.clone()
             if self.score_time == 5:
                 self.score_time = 0
         else:
-            self.P = self.system.F @ self.P @ self.system.F.T + self.Q
+            if self.has_collision:
+                self.F = jacobian.clone()
+            else:
+                self.F = self.system.F.clone()
+                self.predict_state = self.system.f(self.state, self.u)
+            self.P = self.F @ self.P @ self.F.T + self.Q
+            # self.P = self.P + self.Q + self.predict_state[2]
+
+
         # self.P = self.system.F @ self.P @ self.system.F.T + self.Q
-        if self.has_collision:
-            self.F = jacobian
-        else:
-            self.F = self.system.F
-            self.predict_state = self.system.f(self.state, self.u)
+
 
     def update(self, measure):
         # measurement residual
@@ -59,6 +64,7 @@ class air_hockey_EKF:
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
         self.state = self.predict_state + K @ self.y
         self.P = (torch.eye(6, device=device) - K @ self.H) @ self.P
+
 
     def refresh(self, P, Q, R):
         self.P = P

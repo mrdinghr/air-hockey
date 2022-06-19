@@ -9,7 +9,8 @@ table_length = 1.948
 data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
 # data_after_clean = data_after_clean.astype(float)
 # data_after_clean = torch.tensor(data_after_clean[0:5], device=device).float()
-data_after_clean =data_after_clean[0:3]
+data_after_clean =data_after_clean[0:1]
+torch.set_printoptions(precision=8)
 
 
 def calculate_init_state(data):
@@ -67,10 +68,11 @@ class EKFGradient(torch.nn.Module):
 
     def make_loss_list(self, data_set):
         length = len(data_set)
-        loss_list = torch.tensor([0], device=device)
+        # loss_list = torch.tensor([0], device=device)
+        loss_list = []
         for i_trajectory in range(length):
             cur_trajectory = data_set[i_trajectory]
-            cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
+            cur_trajectory = torch.tensor(cur_trajectory[0:30], device=device).float()
             self.puck_EKF.refresh(self.P, self.Q, self.R)
             self.puck_EKF.init_state(calculate_init_state(cur_trajectory))
             i = 0
@@ -85,13 +87,21 @@ class EKFGradient(torch.nn.Module):
                     sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
                     cur_point_loss = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(
                         self.puck_EKF.S) @ self.puck_EKF.y
-                    loss_list = torch.cat((loss_list, torch.atleast_1d(cur_point_loss)))
+                    loss_list.append(cur_point_loss.clone())
                 elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.2) / 120:
                     j = j + 1
                     self.puck_EKF.state = self.puck_EKF.predict_state
                 else:
                     self.puck_EKF.state = self.puck_EKF.predict_state
-        return loss_list[1:]
+
+                # loss_list.append(torch.sum(self.puck_EKF.P))
+                # j += 1
+                self.puck_EKF.predict_state = None
+                self.puck_EKF.P.detach_()
+                self.puck_EKF.F.detach_()
+                self.puck_EKF.y = None
+                self.puck_EKF.S = None
+        return loss_list
 
 
 init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
@@ -104,12 +114,12 @@ for t in range(5):
     print(str(t)+' epoch')
     optimizer.zero_grad()
     loss_list = model.make_loss_list(data_after_clean)
-    dataset_loss = Data.TensorDataset(loss_list)
-    loader = Data.DataLoader(dataset=dataset_loss, batch_size=Batch_size, shuffle=False)
+    # dataset_loss = Data.TensorDataset(loss_list)
+    loader = Data.DataLoader(loss_list, batch_size=10, shuffle=False)
     for loss_batch in loader:
         optimizer.zero_grad()
-        sum_loss_batch = torch.mean(loss_batch[0])
-        sum_loss_batch.backward(retain_graph=True)
+        sum_loss_batch = torch.mean(loss_batch)
+        sum_loss_batch.backward()
         # torch.mean(loss_batch[0]).backward(retain_graph=True)
         print('loss '+str(sum_loss_batch.data))
         print('params '+str(model.get_parameter('dyna_params').data))
