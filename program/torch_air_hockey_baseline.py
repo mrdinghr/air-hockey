@@ -1,5 +1,6 @@
 from math import pi
 import torch
+
 device = torch.device("cuda")
 
 
@@ -27,9 +28,9 @@ class AirHockeyTable:
         offsetP3 = offsetP3 + ref
         offsetP4 = offsetP4 + ref
         self.m_boundary = torch.tensor([[offsetP1[0], offsetP1[1], offsetP3[0], offsetP3[1]],
-                                    [offsetP3[0], offsetP3[1], offsetP4[0], offsetP4[1]],
-                                    [offsetP4[0], offsetP4[1], offsetP2[0], offsetP2[1]],
-                                    [offsetP2[0], offsetP2[1], offsetP1[0], offsetP1[1]]], device=device)
+                                        [offsetP3[0], offsetP3[1], offsetP4[0], offsetP4[1]],
+                                        [offsetP4[0], offsetP4[1], offsetP2[0], offsetP2[1]],
+                                        [offsetP2[0], offsetP2[1], offsetP1[0], offsetP1[1]]], device=device)
 
         self.m_jacCollision = torch.eye(6, device=device)
         #   First Rim
@@ -106,7 +107,8 @@ class AirHockeyTable:
                 vecN[1] = v[0] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
                 vtScalar = torch.dot(state[2:4], vecT)
                 vnSCalar = torch.dot(state[2:4], vecN)
-                if torch.abs(vtScalar + self.m_puckRadius * dtheta) < 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar):
+                if torch.abs(vtScalar + self.m_puckRadius * dtheta) < 3 * self.m_rimFriction * (
+                        1 + self.m_e) * torch.abs(vnSCalar):
                     # Velocity on next time step without sliding
                     vtNextSCalar = 2 * vtScalar / 3 - self.m_puckRadius * dtheta / 3
                     vnNextScalar = -self.m_e * vnSCalar
@@ -132,7 +134,8 @@ class AirHockeyTable:
                         cur_state[4] = theta_pre + (1 - s) * cur_state[5] * self.m_dt
                 else:
                     # velocity on next time step with sliding
-                    slideDir = (vtScalar + dtheta * self.m_puckRadius) / torch.abs(vtScalar + dtheta * self.m_puckRadius)
+                    slideDir = (vtScalar + dtheta * self.m_puckRadius) / torch.abs(
+                        vtScalar + dtheta * self.m_puckRadius)
                     vtNextSCalar = vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar
                     vnNextScalar = -self.m_e * vnSCalar
                     cur_state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
@@ -143,7 +146,7 @@ class AirHockeyTable:
                     self.m_jacCollision[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
                     self.m_jacCollision[3][3] = -self.m_e
                     self.m_jacCollision[4][5] = self.m_dt
-                    self.m_jacCollision[5][3] = self.m_jacCollision[2][3]*2 / self.m_puckRadius
+                    self.m_jacCollision[5][3] = self.m_jacCollision[2][3] * 2 / self.m_puckRadius
                     self.m_jacCollision = self.m_jacCollision
                     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                     if theta_pre + (1 - s) * cur_state[5] * self.m_dt > pi:
@@ -154,7 +157,6 @@ class AirHockeyTable:
                         cur_state[4] = theta_pre + (1 - s) * cur_state[5] * self.m_dt
                 cur_state[0:2] = state_pre + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
                 cur_state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
-
 
                 # if theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt > pi:
                 #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt - 2*pi
@@ -203,8 +205,8 @@ class SystemModel:
         x_[4] = angle
         x.detach_()
         if torch.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
-            x_[2:4] = x[2:4] - u * (
-                        self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / torch.sqrt(x[2] * x[2] + x[3] * x[3]))
+            x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / torch.sqrt(
+                x[2] * x[2] + x[3] * x[3]))
         else:
             x_[2:4] = x[2:4] - u * self.tableDamping * x[2:4]
         x_[5] = x[5]
