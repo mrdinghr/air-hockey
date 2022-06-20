@@ -93,7 +93,7 @@ class EKFGradient(torch.nn.Module):
                     cur_point_loss = sign * torch.exp(logdet) + self.puck_EKF.y @ torch.linalg.inv(
                         self.puck_EKF.S) @ self.puck_EKF.y
                     # loss_list.append(cur_point_loss.clone())
-                    loss_list.append(self.puck_EKF.y.sum())
+                    loss_list.append(cur_point_loss)
                 elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.2) / 120:
                     j = j + 1
                     self.puck_EKF.state = self.puck_EKF.predict_state
@@ -127,7 +127,6 @@ for t in range(5):
         optimizer.zero_grad()
         sum_loss_batch = torch.mean(loss_batch)
         sum_loss_batch.backward(retain_graph=True)
-        j += 1
         print('loss '+str(sum_loss_batch))
         print('params '+str(model.get_parameter('dyna_params').data))
         print('grad '+str(model.get_parameter('dyna_params').grad))
