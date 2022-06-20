@@ -72,7 +72,7 @@ class EKFGradient(torch.nn.Module):
         loss_list = []
         for i_trajectory in range(length):
             cur_trajectory = data_set[i_trajectory]
-            cur_trajectory = torch.tensor(cur_trajectory[0:30], device=device).float()
+            cur_trajectory = torch.tensor(cur_trajectory[0:10], device=device).float()
             self.puck_EKF.refresh(self.P, self.Q, self.R)
             self.puck_EKF.init_state(calculate_init_state(cur_trajectory))
             i = 0

@@ -32,6 +32,7 @@ class air_hockey_EKF:
         self.state = state
 
     def predict(self):
+
         self.has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
         if self.score or self.score_time != 0:
             self.score_time += 1
