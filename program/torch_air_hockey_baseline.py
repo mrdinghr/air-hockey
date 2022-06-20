@@ -75,45 +75,47 @@ class AirHockeyTable:
         self.m_rimFriction = rimFriction
 
     def apply_collision(self, state):
-        p = state[0:2].detach()
-        # vel = state[2:4]
-        # jacobian = torch.eye(6, device=device)
+        pos = state[0:2].detach()
+        vel = state[2:4].clone()
+        angle = state[4].detach()
+        ang_vel = state[5].clone()
+
         score = False
-        if torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
+        if torch.abs(pos[1]) < self.m_goalWidth / 2 and pos[0] < self.m_boundary[0][0] + self.m_puckRadius:
             score = True
-        elif torch.abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
+        elif torch.abs(pos[1]) < self.m_goalWidth / 2 and pos[0] > self.m_boundary[0][2] - self.m_puckRadius:
             score = True
-        u = state[2:4] * self.m_dt
-        i = 0
+        u = vel * self.m_dt
         cur_state = torch.zeros(6, device=device)
         for i in range(self.m_boundary.shape[0]):
             p1 = self.m_boundary[i][0:2]
             p2 = self.m_boundary[i][2:]
             v = p2 - p1  # torch.tensor([p2[0] - p1[0], p2[1] - p1[1]], device=device).double()
-            w = p1 - p  # torch.tensor([p1[0] - p[0], p1[1] - p[1]], device=device).double()
-            denominator = cross2d(v, u)
+            w = p1 - pos  # torch.tensor([p1[0] - p[0], p1[1] - p[1]], device=device).double()
+            denominator = cross2d(v, u.detach())
             if abs(denominator) < 1e-6:
                 continue
             s = cross2d(v, w) / denominator
-            r = cross2d(u, w) / denominator
+            r = cross2d(u.detach(), w) / denominator
             if cross2d(w, v) < 0 or (s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
-                state_pre = p + s * u
-                theta_pre = state[4].detach() + s * state[5] * self.m_dt
-                # state.detach_()
-                vecT = v / torch.sqrt(v[0] * v[0] + v[1] * v[1])
+                state_pre = pos + s * u
+                theta_pre = angle + s * ang_vel * self.m_dt
+                vel.detach_()
+                ang_vel.detach_()
+
+                vecT = v / torch.linalg.norm(v)
                 vecN = torch.zeros(2, device=device)
-                vecN[0] = -v[1] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
-                vecN[1] = v[0] / torch.sqrt(v[0] * v[0] + v[1] * v[1])
-                vtScalar = torch.dot(state[2:4], vecT)
-                vnSCalar = torch.dot(state[2:4], vecN)
-                dtheta = state[5]
-                if torch.abs(vtScalar + self.m_puckRadius * dtheta) < 3 * self.m_rimFriction * (
+                vecN[0] = -v[1] / torch.linalg.norm(v)
+                vecN[1] = v[0] / torch.linalg.norm(v)
+                vtScalar = torch.dot(vel, vecT)
+                vnSCalar = torch.dot(vel, vecN)
+                if torch.abs(vtScalar + self.m_puckRadius * ang_vel) < 3 * self.m_rimFriction * (
                         1 + self.m_e) * torch.abs(vnSCalar):
                     # Velocity on next time step without sliding
-                    vtNextSCalar = 2 * vtScalar / 3 - self.m_puckRadius * dtheta / 3
+                    vtNextSCalar = 2 * vtScalar / 3 - self.m_puckRadius * ang_vel / 3
                     vnNextScalar = -self.m_e * vnSCalar
                     # Angular volocity next point
-                    cur_state5 = dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
+                    cur_state5 = ang_vel / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
                     # cur_state[5] = dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
                     # update jacobian
                     self.m_jacCollision = torch.eye(6, device=device)
@@ -135,11 +137,11 @@ class AirHockeyTable:
                         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
                 else:
                     # velocity on next time step with sliding
-                    slideDir = (vtScalar + dtheta * self.m_puckRadius) / torch.abs(
-                        vtScalar + dtheta * self.m_puckRadius)
+                    slideDir = (vtScalar + ang_vel * self.m_puckRadius) / torch.abs(
+                        vtScalar + ang_vel * self.m_puckRadius)
                     vtNextSCalar = vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar
                     vnNextScalar = -self.m_e * vnSCalar
-                    cur_state5 = dtheta + 2 * self.m_rimFriction * slideDir * (
+                    cur_state5 = ang_vel + 2 * self.m_rimFriction * slideDir * (
                             1 + self.m_e) * vnSCalar / self.m_puckRadius
                     # cur_state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
                     #         1 + self.m_e) * vnSCalar / self.m_puckRadius
@@ -158,10 +160,11 @@ class AirHockeyTable:
                         cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
                     else:
                         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
+
                 cur_state[0:2] = state_pre + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
                 state.detach_()
-                cur_state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
-                cur_state[5] = cur_state5
+                cur_state[2:4] = -self.m_e * vnSCalar.detach() * vecN + vtNextSCalar.detach() * vecT
+                cur_state[5] = cur_state5.detach()
                 # if theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt > pi:
                 #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt - 2*pi
                 # elif theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt < -pi:
@@ -199,22 +202,26 @@ class SystemModel:
         return J_linear
 
     def f(self, x, u):
-        x_ = torch.zeros(6, device=device)
-        x_[0:2] = x[0:2].detach() + u * x[2:4]
-        angle = torch.fmod(x[4].detach() + u * x[5], pi * 2)
+        pos_prev = x[0:2].detach().clone()
+        vel_prev = x[2:4].clone()
+        ang_prev = x[4].detach().clone()
+        ang_vel_prev = x[5].clone()
+
+        pos = pos_prev + u * vel_prev
+        angle = torch.fmod(ang_prev + u * ang_vel_prev, pi * 2)
         if angle > pi:
             angle = angle - pi * 2
         elif angle < -pi:
             angle = angle + pi * 2
-        x_[4] = angle
-        x.detach_()
-        if torch.sqrt(x[2] * x[2] + x[3] * x[3]) > 1e-6:
-            x_[2:4] = x[2:4] - u * (self.tableDamping * x[2:4] + self.tableFriction * x[2:4] / torch.sqrt(
-                x[2] * x[2] + x[3] * x[3]))
+        vel_prev.detach_()
+        ang_vel_prev.detach_()
+        if torch.linalg.norm(vel_prev) > 1e-6:
+            vel = vel_prev - u * (self.tableDamping * vel_prev + self.tableFriction * vel_prev /
+                                  torch.linalg.norm(vel_prev))
         else:
-            x_[2:4] = x[2:4] - u * self.tableDamping * x[2:4]
-        x_[5] = x[5]
-        return x_
+            vel = vel_prev - u * self.tableDamping * vel_prev
+        ang_vel = ang_vel_prev
+        return torch.cat([pos, vel, torch.atleast_1d(angle), torch.atleast_1d(ang_vel)])
 
     def update_jacobian(self, x, u):
         self.F = self.J_linear
