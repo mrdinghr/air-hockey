@@ -8,7 +8,8 @@ from torch.utils.tensorboard import SummaryWriter
 device = torch.device("cuda")
 table_length = 1.948
 data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
-data_after_clean = data_after_clean[10:20]
+train_data = data_after_clean[0:len(data_after_clean)-3]
+test_data = data_after_clean[-2:]
 torch.set_printoptions(precision=8)
 
 
@@ -113,12 +114,12 @@ if __name__ == '__main__':
     learning_rate = 1e-3
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     Batch_size = 50
-    writer = SummaryWriter('./bgd')
+    writer = SummaryWriter('./bgdall')
     epoch = 0
     for t in range(10):
         print(str(t)+' epoch')
         optimizer.zero_grad()
-        loss_list = model.make_loss_list(data_after_clean)
+        loss_list = model.make_loss_list(train_data)
         # dataset_loss = Data.TensorDataset(loss_list)
         loader = Data.DataLoader(loss_list, batch_size=20, shuffle=True)
         for loss_batch in loader:
@@ -126,10 +127,10 @@ if __name__ == '__main__':
             sum_loss_batch = torch.mean(loss_batch)
             sum_loss_batch.backward(retain_graph=True)
             writer.add_scalar('loss of batch', sum_loss_batch.data, epoch)
-            writer.add_scalar('table damping', model.dyna_params[1], epoch)
-            writer.add_scalar('table friction', model.dyna_params[0], epoch)
-            writer.add_scalar('table restitution', model.dyna_params[2], epoch)
-            writer.add_scalar('rim friction', model.dyna_params[3], epoch)
+            writer.add_scalar('table damping batch', model.dyna_params[1], epoch)
+            writer.add_scalar('table friction batch', model.dyna_params[0], epoch)
+            writer.add_scalar('table restitution batch', model.dyna_params[2], epoch)
+            writer.add_scalar('rim friction batch', model.dyna_params[3], epoch)
             print(str(epoch)+' loss '+str(sum_loss_batch))
             print('params '+str(model.get_parameter('dyna_params').data))
             print('grad '+str(model.get_parameter('dyna_params').grad))
@@ -137,4 +138,11 @@ if __name__ == '__main__':
             for p in model.get_parameter('dyna_params'):
                 p.data.clamp_(0, 1)
             epoch += 1
+        writer.add_scalar('loss of train set', sum(loss_list)/len(loss_list), t)
+        writer.add_scalar('table damping', model.dyna_params[1], epoch)
+        writer.add_scalar('table friction', model.dyna_params[0], epoch)
+        writer.add_scalar('table restitution', model.dyna_params[2], epoch)
+        writer.add_scalar('rim friction', model.dyna_params[3], epoch)
+        test_loss_list = model.make_loss_list(test_data)
+        writer.add_scalar('loss of test set', sum(test_loss_list)/len(test_loss_list), t)
     writer.close()
