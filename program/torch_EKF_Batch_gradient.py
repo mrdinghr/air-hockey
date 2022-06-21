@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 device = torch.device("cuda")
 table_length = 1.948
 data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
-data_after_clean = data_after_clean[:5]
+data_after_clean = data_after_clean[10:20]
 torch.set_printoptions(precision=8)
 
 
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     Batch_size = 50
     writer = SummaryWriter('./bgd')
     epoch = 0
-    for t in range(100):
+    for t in range(10):
         print(str(t)+' epoch')
         optimizer.zero_grad()
         loss_list = model.make_loss_list(data_after_clean)
@@ -134,5 +134,7 @@ if __name__ == '__main__':
             print('params '+str(model.get_parameter('dyna_params').data))
             print('grad '+str(model.get_parameter('dyna_params').grad))
             optimizer.step()
+            for p in model.get_parameter('dyna_params'):
+                p.data.clamp_(0, 1)
             epoch += 1
     writer.close()

@@ -62,7 +62,6 @@ class air_hockey_EKF:
         self.state = self.predict_state + K @ self.y
         self.P = (torch.eye(6, device=device) - K @ self.H) @ self.P
 
-
     def refresh(self, P, Q, R):
         self.P = P
         self.Q = Q
