@@ -4,12 +4,13 @@ from torch_EKF_Wrapper import air_hockey_EKF
 from matplotlib import pyplot as plt
 import numpy as np
 import torch.utils.data as Data
+from torch.utils.tensorboard import SummaryWriter
 device = torch.device("cuda")
 table_length = 1.948
 data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
 # data_after_clean = data_after_clean.astype(float)
 # data_after_clean = torch.tensor(data_after_clean[0:5], device=device).float()
-data_after_clean =data_after_clean[:5]
+data_after_clean = data_after_clean[:5]
 # plt.plot(data_after_clean[:,0],data_after_clean[:, 1])
 # plt.show()
 torch.set_printoptions(precision=8)
@@ -47,7 +48,7 @@ class EKFGradient(torch.nn.Module):
         self.table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
                                                               puckRadius=0.03165,
                                                               restitution=self.dyna_params[2],
-                                                              rimFriction=self.dyna_params[3],dt=1 / 120)
+                                                              rimFriction=self.dyna_params[3], dt=1 / 120)
         self.R = torch.zeros((3, 3), device=device)
         self.R[0][0] = self.covariance_params[0]
         self.R[1][1] = self.covariance_params[1]
@@ -74,7 +75,7 @@ class EKFGradient(torch.nn.Module):
         loss_list = []
         for i_trajectory in range(length):
             cur_trajectory = data_set[i_trajectory]
-            cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
+            cur_trajectory = torch.tensor(cur_trajectory[:50], device=device).float()
             self.puck_EKF.refresh(self.P, self.Q, self.R)
             self.puck_EKF.init_state(calculate_init_state(cur_trajectory))
             i = 0
@@ -114,21 +115,26 @@ model = EKFGradient(init_params, covariance_params)
 learning_rate = 1e-3
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 Batch_size = 50
-j = 0
+writer = SummaryWriter('./BGD data 5 trajectories')
+epoch = 0
 for t in range(5):
     print(str(t)+' epoch')
     optimizer.zero_grad()
-
     loss_list = model.make_loss_list(data_after_clean)
     # dataset_loss = Data.TensorDataset(loss_list)
-    loader = Data.DataLoader(loss_list, batch_size=50, shuffle=False)
+    loader = Data.DataLoader(loss_list, batch_size=20, shuffle=True)
     for loss_batch in loader:
-        print('grad111 ' + str(model.get_parameter('dyna_params').grad))
         optimizer.zero_grad()
         sum_loss_batch = torch.mean(loss_batch)
         sum_loss_batch.backward(retain_graph=True)
-        print('loss '+str(sum_loss_batch))
+        writer.add_scalar('loss of batch', sum_loss_batch, epoch)
+        writer.add_scalar('table damping', model.dyna_params[1], epoch)
+        writer.add_scalar('table friction', model.dyna_params[0], epoch)
+        writer.add_scalar('table restitution', model.dyna_params[2], epoch)
+        writer.add_scalar('rim friction', model.dyna_params[3], epoch)
+        print(str(epoch)+' loss '+str(sum_loss_batch))
         print('params '+str(model.get_parameter('dyna_params').data))
         print('grad '+str(model.get_parameter('dyna_params').grad))
         optimizer.step()
-
+        epoch += 1
+writer.close()
