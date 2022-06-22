@@ -16,6 +16,6 @@ system = air_hockey_baseline.SystemModel(tableDamping=params[1], tableFriction=p
                                          tableRes=params[2], malletRes=0.04815, rimFriction=params[3], dt=1 / 120)
 test_params_trajectory_plot(init_state=init_state, table=table, system=system, u=1/120, state_num=state_num)
 plt.scatter(data_set[trajectory_index][:, 0], data_set[trajectory_index][:, 1], label='record data', c='r')
-plt.scatter(data_set[trajectory_index][0, 0], data_set[trajectory_index][0, 1], c='g', marker='*')
+plt.scatter(data_set[trajectory_index][0, 0], data_set[trajectory_index][0, 1], c='g', marker='*', s=80)
 plt.legend()
 plt.show()
