@@ -80,10 +80,11 @@ class AirHockeyTable:
         p = state[0:2]
         vel = state[2:4]
         jacobian = np.eye(6)
+        score = False
         if abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
-            return False, state, jacobian, True
+            score = True
         elif abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
-            return False, state, jacobian, True
+            score = True
         u = vel * self.m_dt
         i = 0
         for i in range(self.m_boundary.shape[0]):
@@ -141,8 +142,8 @@ class AirHockeyTable:
                 state[2:4] = vnNextScalar * vecN + vtNextSCalar * vecT
                 state[0:2] = p + s * u + (1 - s) * state[2:4] * self.m_dt
                 state[4] = theta + s * dtheta * self.m_dt + (1 - s) * state[5] * self.m_dt
-                return True, state, jacobian, False
-        return False, state, jacobian, False
+                return True, state, jacobian, score
+        return False, state, jacobian, score
 
 
 class SystemModel:
