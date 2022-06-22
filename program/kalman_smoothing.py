@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 from air_hockey_plot import table_plot
 from math import pi
 from EKF_Wrapper import air_hockey_EKF
+import torch
+torch.set_printoptions(precision=8)
 
 
 def kalman_smooth(raw_data, system, table):
@@ -149,10 +151,12 @@ def kalman_smooth(raw_data, system, table):
             ps = EKF_res_P[-j - 2]
             xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
             smooth_res_state.append(xs)
-    return evaluation/num_evaluation
+    # return evaluation/num_evaluation
     # follow code is used to test plot result of kalman smooth. so it s nothing to do with EM process.
-    '''
     smooth_res_state = np.array(smooth_res_state)
+    return smooth_res_state
+    '''
+    #  used to plot the result of kalman smooth
     table_plot(table)
     plt.plot(EKF_res_state[0][0], EKF_res_state[0][1], marker='d', color='r')
     plt.scatter(data[:, 0], data[:, 1], color='g', label='raw data', s=5)
@@ -286,12 +290,13 @@ def kalman_smooth(raw_data, system, table):
 '''
 
 
-'''
-raw_data = np.load("example_data.npy")
-system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
-                                         goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
-                                         tableRes=0.7424, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
-table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                           restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
-kalman_smooth(raw_data, system, table)
-'''
+if __name__ == '__main__':
+    raw_data = np.load("example_data.npy")
+    system = air_hockey_baseline.SystemModel(tableDamping=0.001, tableFriction=0.001, tableLength=1.948, tableWidth=1.038,
+                                             goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
+                                             tableRes=0.7424, malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
+    table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
+                                               restitution=0.7424, rimFriction=0.1418, dt=1 / 120)
+    smooth_state = kalman_smooth(raw_data, system, table)
+
+
