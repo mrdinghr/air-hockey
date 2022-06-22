@@ -6,7 +6,7 @@ from torch_EKF_Batch_gradient import calculate_init_state
 data_set = np.load('total_data_after_clean.npy', allow_pickle=True)
 # data_set = np.load('example_data.npy')
 params = np.array([0.001, 0.001, 0.7424, 0.1418])  # table friction, table damping, table restitution, rim friction
-trajectory_index = -2  # choose which trajectory to test, current total 150 trajectories 2022.06.21
+trajectory_index = 6  # choose which trajectory to test, current total 150 trajectories 2022.06.21
 # init_state = calculate_init_state(data_set[trajectory_index]).cpu().numpy()
 # state_num = 1000
 # table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,

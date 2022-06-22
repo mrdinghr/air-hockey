@@ -8,8 +8,13 @@ from torch.utils.tensorboard import SummaryWriter
 device = torch.device("cuda")
 table_length = 1.948
 data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
-train_data = data_after_clean[0:len(data_after_clean)-3]
-test_data = data_after_clean[-2:]
+train_data = data_after_clean[10:15]
+test_data = data_after_clean[6:7]
+# test_index = np.random.randint(0, len(data_after_clean), size=2)
+# test_index = 2
+# test_data = data_after_clean[2:3]
+# train_data = np.ma.array(data_after_clean, mask=False)
+# train_data.mask[test_index] = True
 torch.set_printoptions(precision=8)
 
 
@@ -113,15 +118,15 @@ if __name__ == '__main__':
     model = EKFGradient(init_params, covariance_params)
     learning_rate = 1e-3
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-    Batch_size = 50
-    writer = SummaryWriter('./bgdall')
+    Batch_size = 20
+    writer = SummaryWriter('./bgd')
     epoch = 0
-    for t in range(10):
+    for t in range(100):
         print(str(t)+' epoch')
         optimizer.zero_grad()
         loss_list = model.make_loss_list(train_data)
         # dataset_loss = Data.TensorDataset(loss_list)
-        loader = Data.DataLoader(loss_list, batch_size=20, shuffle=True)
+        loader = Data.DataLoader(loss_list, batch_size=Batch_size, shuffle=True)
         for loss_batch in loader:
             optimizer.zero_grad()
             sum_loss_batch = torch.mean(loss_batch)
@@ -139,10 +144,10 @@ if __name__ == '__main__':
                 p.data.clamp_(0, 1)
             epoch += 1
         writer.add_scalar('loss of train set', sum(loss_list)/len(loss_list), t)
-        writer.add_scalar('table damping', model.dyna_params[1], epoch)
-        writer.add_scalar('table friction', model.dyna_params[0], epoch)
-        writer.add_scalar('table restitution', model.dyna_params[2], epoch)
-        writer.add_scalar('rim friction', model.dyna_params[3], epoch)
+        writer.add_scalar('table damping', model.dyna_params[1], t)
+        writer.add_scalar('table friction', model.dyna_params[0], t)
+        writer.add_scalar('table restitution', model.dyna_params[2], t)
+        writer.add_scalar('rim friction', model.dyna_params[3], t)
         test_loss_list = model.make_loss_list(test_data)
         writer.add_scalar('loss of test set', sum(test_loss_list)/len(test_loss_list), t)
     writer.close()
