@@ -155,15 +155,15 @@ def kalman_smooth(raw_data, system, table):
     # follow code is used to test plot result of kalman smooth. so it s nothing to do with EM process.
     smooth_res_state = np.array(smooth_res_state)
     return smooth_res_state
-    '''
+'''
     #  used to plot the result of kalman smooth
+    plt.figure()
     table_plot(table)
     plt.plot(EKF_res_state[0][0], EKF_res_state[0][1], marker='d', color='r')
     plt.scatter(data[:, 0], data[:, 1], color='g', label='raw data', s=5)
     plt.scatter(EKF_res_state[:, 0], EKF_res_state[:, 1], color='b', label='EKF', s=5)
     plt.scatter(smooth_res_state[:, 0], smooth_res_state[:, 1], color='r', label='smooth', s=5)
     plt.legend()
-    # plt.show()
     # calculate raw data velocity
     data_x_velocity = []
     data_y_velocity = []
@@ -177,6 +177,7 @@ def kalman_smooth(raw_data, system, table):
         else:
             data_theta_velocity.append((pre_data[i][2] - pre_data[i - 1][2]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
     # plot x position
+    plt.figure()
     plt.subplot(3, 4, 1)
     plt.scatter(time_EKF, EKF_res_state[:, 0], color='b', label='EKF x position', s=5)
     plt.title('only EKF x position')

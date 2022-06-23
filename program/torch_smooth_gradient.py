@@ -1,13 +1,13 @@
 import numpy as np
 import torch.utils.data as Data
 from torch.utils.tensorboard import SummaryWriter
+from matplotlib import pyplot as plt
 import torch
 import torch_air_hockey_baseline
 from torch_EKF_Wrapper import air_hockey_EKF
-
 device = torch.device("cuda")
 table_length = 1.948
-
+total_trajectory_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
 
 # input: recorded trajectories
 # output:init_state of this trajectory
@@ -30,8 +30,10 @@ def calculate_init_state(data):
 
 # dyna_params: table friction, table damping, table restitution, rim friction
 # input: trajectory, dyna_parameters, covariance_parameters
-# output: state of one trajectory calculated by kalman smooth.
-def state_kalman_smooth(cur_trajectory, dyna_params, covariance_params):
+# output: state of one trajectory calculated by kalman smooth. list of tensor
+def state_kalman_smooth(cur_trajectory, in_dyna_params, covariance_params):
+    cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
+    dyna_params = in_dyna_params.clone().detach()
     R = torch.zeros((3, 3), device=device)
     R[0][0] = covariance_params[0]
     R[1][1] = covariance_params[1]
@@ -53,25 +55,48 @@ def state_kalman_smooth(cur_trajectory, dyna_params, covariance_params):
                                                      puckRadius=0.03165, restitution=dyna_params[2],
                                                      rimFriction=dyna_params[3], dt=1 / 120)
     init_state = calculate_init_state(cur_trajectory)
-    data = cur_trajectory
     u = 1/120
     puck_EKF = air_hockey_EKF(u, system, table, Q, R, P)
     EKF_res_state = []
+    EKF_resx = []
+    EKF_resy = []
     EKF_res_P = []
     EKF_res_dynamic = []
     EKF_res_collision = []
     EKF_res_update = []
     i = 0
     j = 1
-    length = len(data)
+    length = len(cur_trajectory)
     time_EKF = []
-    while j < length:
+    while j < length - 1:
         i += 1
         time_EKF.append(i / 120)
+        puck_EKF.init_state(init_state)
         puck_EKF.predict()
+        EKF_res_state.append(puck_EKF.predict_state)
+        EKF_resx.append(puck_EKF.predict_state[0].cpu().numpy())
+        EKF_resy.append(puck_EKF.predict_state[1].cpu().numpy())
+        if (i - 0.2) / 120 < cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] < ( i + 0.2) / 120:
+            puck_EKF.update(cur_trajectory[j+1][0:3])
+            j += 1
+        elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.2) / 120:
+            j = j + 1
+            puck_EKF.state = puck_EKF.predict_state
+        else:
+            puck_EKF.state = puck_EKF.predict_state
 
 
+    plt.figure()
+    plt.scatter(cur_trajectory[1:, 0].cpu().numpy(), cur_trajectory[1:, 1].cpu().numpy(), label='recorded trajectory')
+    plt.scatter(EKF_resx, EKF_resy, label='EKF trajectory')
+    plt.legend()
+    plt.show()
     return
+
+
+init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
+covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
+state_kalman_smooth(total_trajectory_after_clean[0], init_params, covariance_params)
 
 
 class Kalman_Smooth_Gradient(torch.nn.Module):
@@ -102,3 +127,7 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         self.Q[5][5] = self.covariance_params[6]
         self.P = torch.eye(6, device=device) * 0.01
         self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
+
+    def loss_kalman_smooth(self, state, trajectory):
+
+        return

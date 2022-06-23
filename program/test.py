@@ -4,11 +4,66 @@ from air_hockey_plot import test_params_trajectory_plot
 import air_hockey_baseline
 from torch_EKF_Batch_gradient import calculate_init_state
 from torch.utils.tensorboard import SummaryWriter
+import torch
+a = torch.tensor([1,2, 3,4])
+b=c=d=a
+e=[a,b]
+f =[c,d]
+plt.scatter(e[:][0], f[:][0])
+# b = a.clone().detach()
 
-writer = SummaryWriter('./bgd')
-for i in range(10):
-    writer.add_scalar('test', i, i)
-    writer.close()
+plt.show()
+
+
+"""
+#  not completely write code about torch kalman smooth
+def state_kalman_smooth(cur_trajectory, dyna_params, covariance_params):
+    R = torch.zeros((3, 3), device=device)
+    R[0][0] = covariance_params[0]
+    R[1][1] = covariance_params[1]
+    R[2][2] = covariance_params[2]
+    Q = torch.zeros((6, 6), device=device)
+    Q[0][0] = covariance_params[3]
+    Q[1][1] = covariance_params[3]
+    Q[2][2] = covariance_params[4]
+    Q[3][3] = covariance_params[4]
+    Q[4][4] = covariance_params[5]
+    Q[5][5] = covariance_params[6]
+    P = torch.eye(6, device=device) * 0.01
+    system = torch_air_hockey_baseline.SystemModel(tableDamping=dyna_params[1], tableFriction=dyna_params[0],
+                                                   tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
+                                                   puckRadius=0.03165, malletRadius=0.04815,
+                                                   tableRes=dyna_params[3],
+                                                   malletRes=0.8, rimFriction=dyna_params[2], dt=1 / 120)
+    table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
+                                                     puckRadius=0.03165, restitution=dyna_params[2],
+                                                     rimFriction=dyna_params[3], dt=1 / 120)
+    init_state = calculate_init_state(cur_trajectory)
+    data = cur_trajectory
+    u = 1/120
+    puck_EKF = air_hockey_EKF(u, system, table, Q, R, P)
+    EKF_res_state = []
+    EKF_res_P = []
+    EKF_res_dynamic = []
+    EKF_res_collision = []
+    EKF_res_update = []
+    i = 0
+    j = 1
+    length = len(data)
+    time_EKF = []
+    while j < length:
+        i += 1
+        time_EKF.append(i / 120)
+        puck_EKF.predict()
+
+
+    return
+"""
+
+# writer = SummaryWriter('./bgd')
+# for i in range(10):
+#     writer.add_scalar('test', i, i)
+#     writer.close()
 
 
 # data_set = np.load('total_data_after_clean.npy', allow_pickle=True)

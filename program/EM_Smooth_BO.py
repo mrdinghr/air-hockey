@@ -38,7 +38,6 @@ def expectation(Nparams):
 
 for i in range(30):
     rec_x = hebo.suggest(n_suggestions=5)
-
     hebo.observe(rec_x, obj(rec_x))
     min_idx = hebo.y.argmin()
     print(str(i) + ' y is ' + str(hebo.y.min()) + ' tableFriction ' + str(hebo.X.iloc[min_idx]['tableFriction']) +' tableDamping '+ str(
