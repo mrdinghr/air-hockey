@@ -1,5 +1,6 @@
 import numpy as np
 import torch.utils.data as Data
+from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from matplotlib import pyplot as plt
 import torch
@@ -172,7 +173,9 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         self.P = torch.eye(6, device=device) * 0.01
         self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
 
+    # input batch trajectory and
     def loss_kalman_smooth(self, state, batch_trajectory):
+        batch_trajectory = torch.tensor(batch_trajectory, device=device).float()
         EKF_res_state = [state]
         EKF_res_P = []
         EKF_res_dynamic = []
@@ -201,5 +204,67 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
             else:
                 self.puck_EKF.state = self.puck_EKF.predict_state
                 EKF_res_update.append(False)
+        evaluation = 0
+        num_evaluation = 0
+        time = len(EKF_res_state)
+        i = 0
+        xs = EKF_res_state[-1]
+        ps = EKF_res_P[-1]
+        for j in range(time - 2):
+            if EKF_res_update[-1 - j]:
+                i += 1
+                innovation = batch_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
+                if xs[4] * batch_trajectory[-i, 2] < 0:
+                    innovation[2] = 2 * pi + torch.sign(xs[4]) * (batch_trajectory[-i, 2] - xs[4])
+                innovation_covariance = self.puck_EKF.H @ ps
+                sign, logdet = torch.linalg.slogdet(innovation_covariance)
+                num_evaluation += 1
+                evaluation = evaluation + (sign * torch.exp(logdet) + innovation.T @ torch.linalg.inv(innovation_covariance) @ innovation)
+            xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
+            pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + self.Q
+            c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
+            if abs(xs[4] - xp[4]) > pi:
+                xp[4] = xp[4] - torch.sign(xp[4]) * 2 * pi
+            if xs[5] * xp[5] < 0:
+                xs[5] = -xs[5]
+            xs = EKF_res_state[-j - 2] + c @ (xs - xp)
+            ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
+        return evaluation / num_evaluation
 
-        return
+
+class double_dataset(Dataset):
+    def __init__(self, dataset1, dataset2):
+        self.dataset1 = dataset1
+        self.dataset2 = dataset2
+
+    def __getitem__(self, index):
+        x1 = self.dataset1[index]
+        x2 = self.dataset2[index]
+        return x1, x2
+
+    def __len__(self):
+        return len(self.dataset1)
+
+
+if __name__ == '__main__':
+    # table friction, table damping, table restitution, rim friction
+    init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
+    covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
+    model = Kalman_Smooth_Gradient(init_params, covariance_params)
+    lr = 1e-3
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    Batch_size = 50
+    epoch = 0
+    for t in range(100):
+        for j in len(total_trajectory_after_clean):
+            optimizer.zero_grad()
+            state_list = state_kalman_smooth(total_trajectory_after_clean[j], model.dyna_params, covariance_params)
+            dataset = double_dataset(total_trajectory_after_clean[j][2:], state_list)
+            loader = Data.DataLoader(dataset, batch_size=Batch_size)
+            for batch_data in loader:
+                optimizer.zero_grad()
+                state = torch.zeros(6)
+                # state[0:3] = batch_data[0][0][0:3]
+                # state[3:] = batch_data[1][0][2, 3, 5]
+                loss = model.loss_kalman_smooth()
+
