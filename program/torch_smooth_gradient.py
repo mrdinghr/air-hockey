@@ -136,8 +136,10 @@ def state_kalman_smooth(cur_trajectory, in_dyna_params, covariance_params):
 
 
 init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
+init_params.requires_grad = True
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
-state_kalman_smooth(total_trajectory_after_clean[0], init_params, covariance_params)
+res = state_kalman_smooth(total_trajectory_after_clean[0], init_params, covariance_params)
+print(res)
 
 
 class Kalman_Smooth_Gradient(torch.nn.Module):
@@ -169,5 +171,6 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         self.P = torch.eye(6, device=device) * 0.01
         self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
 
-    def loss_kalman_smooth(self, state, trajectory):
+    def loss_kalman_smooth(self, state, batch_trajectory):
+
         return
