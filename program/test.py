@@ -5,14 +5,32 @@ import air_hockey_baseline
 from torch_EKF_Batch_gradient import calculate_init_state
 from torch.utils.tensorboard import SummaryWriter
 import torch
-a = torch.tensor([1,2, 3,4])
-b=c=d=a
-e=[a,b]
-f =[c,d]
-plt.scatter(e[:][0], f[:][0])
-# b = a.clone().detach()
+import torch.utils.data as Data
+from torch.utils.data import Dataset
 
-plt.show()
+t = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+d = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+
+
+class double_dataset(Dataset):
+    def __init__(self, dataset1, dataset2):
+        self.dataset1 = dataset1
+        self.dataset2 = dataset2
+
+    def __getitem__(self, index):
+        x1 = self.dataset1[index]
+        x2 = self.dataset2[index]
+        return x1, x2
+
+    def __len__(self):
+        return len(self.dataset1)
+
+
+dataset = double_dataset(t, d)
+loader = Data.DataLoader(dataset, batch_size=3)
+for batch in loader:
+    print(batch)
+# b = a.clone().detach()
 
 
 """
