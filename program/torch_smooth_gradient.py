@@ -160,7 +160,7 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
     # plt.show()
     if if_loss:
         return evaluation / num_evaluation
-    return list_total_state_batch_start_point
+    return list_total_state_batch_start_point, evaluation / num_evaluation
 
 
 # init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
@@ -281,8 +281,9 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     Batch_size = 50
     epoch = 0
-    for t in range(10):
-        state_list = state_kalman_smooth(train_trajectory, model.dyna_params, covariance_params, Batch_size, False)
+    writer = SummaryWriter('./smooth')
+    for t in range(100):
+        state_list, train_loss = state_kalman_smooth(train_trajectory, model.dyna_params, covariance_params, Batch_size, False)
         index_list = range(len(state_list))
         loader = Data.DataLoader(index_list, batch_size=Batch_size, shuffle=True)
         for index_batch in loader:
@@ -295,4 +296,10 @@ if __name__ == '__main__':
             optimizer.step()
             epoch += 1
         test_loss = state_kalman_smooth(test_trajectory, model.dyna_params, covariance_params, Batch_size, True)
+        writer.add_scalar('loss of train set', train_loss, t)
+        writer.add_scalar('loss of test set', test_loss, t)
+        writer.add_scalar('table damping', model.dyna_params[1], t)
+        writer.add_scalar('table friction', model.dyna_params[0], t)
+        writer.add_scalar('table restitution', model.dyna_params[2], t)
+        writer.add_scalar('rim friction', model.dyna_params[3], t)
         print('test loss ' + str(test_loss))
