@@ -12,8 +12,9 @@ from math import pi
 device = torch.device("cuda")
 table_length = 1.948
 total_trajectory_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
-train_trajectory = total_trajectory_after_clean[66:69]
+train_trajectory = total_trajectory_after_clean[65:70]
 test_trajectory = total_trajectory_after_clean[10:12]
+
 
 # input: recorded trajectories
 # output:init_state of this trajectory
