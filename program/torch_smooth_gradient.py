@@ -12,8 +12,8 @@ from math import pi
 device = torch.device("cuda")
 table_length = 1.948
 total_trajectory_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
-total_trajectory_after_clean = total_trajectory_after_clean[0:2]
-
+train_trajectory = total_trajectory_after_clean[66:69]
+test_trajectory = total_trajectory_after_clean[10:12]
 
 # input: recorded trajectories
 # output:init_state of this trajectory
@@ -37,8 +37,10 @@ def calculate_init_state(data):
 # dyna_params: table friction, table damping, table restitution, rim friction
 # input: trajectory, dyna_parameters, covariance_parameters
 # output: state of one trajectory calculated by kalman smooth. list of tensor
-def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_size):
+def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_size, if_loss):
     list_total_state_batch_start_point = []
+    evaluation = 0
+    num_evaluation = 0
     for trajectory_index in range(len(trajectory)):
         cur_trajectory = trajectory[trajectory_index]
         cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
@@ -107,6 +109,16 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
         time = len(EKF_res_state)
         i = 0
         for j in range(time - 2):
+            if EKF_res_update[-1 - j]:
+                i += 1
+                innovation = cur_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
+                if xs[4] * cur_trajectory[-i, 2] < 0:
+                    innovation[2] = 2 * pi + torch.sign(xs[4]) * (cur_trajectory[-i, 2] - xs[4])
+                innovation_covariance = puck_EKF.H @ ps @ puck_EKF.H.T + puck_EKF.R
+                sign, logdet = torch.linalg.slogdet(innovation_covariance)
+                num_evaluation += 1
+                evaluation = evaluation + (sign * torch.exp(logdet) + innovation @ torch.linalg.inv(
+                    innovation_covariance) @ innovation)
             xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
             # if not EKF_res_collision[-j - 1]:
             #     if torch.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
@@ -145,6 +157,8 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
     # plt.scatter(smooth_resx.cpu().numpy(), smooth_resy.cpu().numpy(), label='Smooth trajectory')
     # plt.legend()
     # plt.show()
+    if if_loss:
+        return evaluation / num_evaluation
     return list_total_state_batch_start_point
 
 
@@ -185,14 +199,14 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
 
     # input batch trajectory and
-    def loss_kalman_smooth(self, state_list, list_index, batch_size):
+    def loss_kalman_smooth(self, state_list, list_index, batch_size, train_trajectory):
         evaluation = 0
         num_evaluation = 0
         for batch_index in list_index:
             trajectory_index = state_list[batch_index][0]
             start_point_index = state_list[batch_index][1]
             batch_trajectory = torch.tensor(
-                total_trajectory_after_clean[int(trajectory_index)][int(start_point_index):int(start_point_index) + batch_size],
+                train_trajectory[int(trajectory_index)][int(start_point_index):int(start_point_index) + batch_size],
                 device=device).float()
             if len(batch_trajectory) <= 2:
                 continue
@@ -267,16 +281,17 @@ if __name__ == '__main__':
     Batch_size = 50
     epoch = 0
     for t in range(10):
-        state_list = state_kalman_smooth(total_trajectory_after_clean, model.dyna_params, covariance_params, Batch_size)
+        state_list = state_kalman_smooth(train_trajectory, model.dyna_params, covariance_params, Batch_size, False)
         index_list = range(len(state_list))
         loader = Data.DataLoader(index_list, batch_size=Batch_size, shuffle=True)
         for index_batch in loader:
             optimizer.zero_grad()
-            loss = model.loss_kalman_smooth(state_list, index_batch, Batch_size)
+            loss = model.loss_kalman_smooth(state_list, index_batch, Batch_size, train_trajectory)
             loss.backward()
             print(str(epoch)+' loss ' + str(loss))
             print('params ' + str(model.get_parameter('dyna_params').data))
             print('grad ' + str(model.get_parameter('dyna_params').grad))
             optimizer.step()
             epoch += 1
-
+        test_loss = state_kalman_smooth(test_trajectory, model.dyna_params, covariance_params, Batch_size, True)
+        print('test loss ' + str(test_loss))
