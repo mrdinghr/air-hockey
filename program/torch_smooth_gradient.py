@@ -7,9 +7,11 @@ import torch
 import torch_air_hockey_baseline
 from torch_EKF_Wrapper import air_hockey_EKF
 from math import pi
+
 device = torch.device("cuda")
 table_length = 1.948
 total_trajectory_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
+total_trajectory_after_clean = total_trajectory_after_clean[0:2]
 
 
 # input: recorded trajectories
@@ -34,113 +36,121 @@ def calculate_init_state(data):
 # dyna_params: table friction, table damping, table restitution, rim friction
 # input: trajectory, dyna_parameters, covariance_parameters
 # output: state of one trajectory calculated by kalman smooth. list of tensor
-def state_kalman_smooth(cur_trajectory, in_dyna_params, covariance_params):
-    cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
-    dyna_params = in_dyna_params.clone().detach()
-    R = torch.zeros((3, 3), device=device)
-    R[0][0] = covariance_params[0]
-    R[1][1] = covariance_params[1]
-    R[2][2] = covariance_params[2]
-    Q = torch.zeros((6, 6), device=device)
-    Q[0][0] = covariance_params[3]
-    Q[1][1] = covariance_params[3]
-    Q[2][2] = covariance_params[4]
-    Q[3][3] = covariance_params[4]
-    Q[4][4] = covariance_params[5]
-    Q[5][5] = covariance_params[6]
-    P = torch.eye(6, device=device) * 0.01
-    system = torch_air_hockey_baseline.SystemModel(tableDamping=dyna_params[1], tableFriction=dyna_params[0],
-                                                   tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
-                                                   puckRadius=0.03165, malletRadius=0.04815,
-                                                   tableRes=dyna_params[3],
-                                                   malletRes=0.8, rimFriction=dyna_params[2], dt=1 / 120)
-    table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
-                                                     puckRadius=0.03165, restitution=dyna_params[2],
-                                                     rimFriction=dyna_params[3], dt=1 / 120)
-    init_state = calculate_init_state(cur_trajectory)
-    u = 1 / 120
-    puck_EKF = air_hockey_EKF(u, system, table, Q, R, P)
-    puck_EKF.init_state(init_state)
-    EKF_res_state = [init_state]
-    EKF_resx = [init_state[0]]
-    EKF_resy = [init_state[1]]
-    EKF_res_P = []
-    EKF_res_dynamic = []
-    EKF_res_collision = []
-    EKF_res_update = []
-    i = 0
-    j = 1
-    length = len(cur_trajectory)
-    time_EKF = []
-    while j < length - 1:
-        i += 1
-        time_EKF.append(i / 120)
-        puck_EKF.predict()
-        EKF_res_state.append(puck_EKF.predict_state)
-        EKF_res_P.append(puck_EKF.P)
-        EKF_res_dynamic.append(puck_EKF.F)
-        EKF_res_collision.append(puck_EKF.has_collision)
-        EKF_resx.append(puck_EKF.predict_state[0])
-        EKF_resy.append(puck_EKF.predict_state[1])
-        if (i - 0.2) / 120 < cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] < (i + 0.2) / 120:
-            puck_EKF.update(cur_trajectory[j + 1][0:3])
-            j += 1
-            EKF_res_update.append(True)
-        elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.2) / 120:
-            j = j + 1
-            puck_EKF.state = puck_EKF.predict_state
-            EKF_res_update.append(False)
-        else:
-            puck_EKF.state = puck_EKF.predict_state
-            EKF_res_update.append(False)
-    smooth_res_state = [EKF_res_state[-1]]
-    smooth_resx = [EKF_resx[-1]]
-    smooth_resy = [EKF_resy[-1]]
-    xs = EKF_res_state[-1]
-    ps = EKF_res_P[-1]
-    time = len(EKF_res_state)
-    i = 0
-    for j in range(time - 2):
-        xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
-        # if not EKF_res_collision[-j - 1]:
-        #     if torch.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-        #                EKF_res_state[-j - 2][3]) > 1e-6:
-        #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
-        #                 system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
-        #                                                                                           2:4] / torch.sqrt(
-        #             EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-        #             EKF_res_state[-j - 2][3]))
-        #     else:
-        #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
-        pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
-        c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
-        if abs(xs[4] - xp[4]) > pi:
-            xp[4] = xp[4] - torch.sign(xp[4]) * 2 * pi
-        if xs[5] * xp[5] < 0:
-            xs[5] = -xs[5]
-        xs = EKF_res_state[-j - 2] + c @ (xs - xp)
-        ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
-        if EKF_res_update[-j - 2]:
-            smooth_res_state.append(xs)
-            smooth_resx.append(xs[0].cpu().numpy())
-            smooth_resy.append(xs[1].cpu().numpy())
-    EKF_resx = torch.tensor(EKF_resx, device=device)
-    EKF_resy = torch.tensor(EKF_resy, device=device)
-    smooth_resx = torch.tensor(smooth_resx, device=device)
-    smooth_resy = torch.tensor(smooth_resy, device=device)
-    plt.figure()
-    plt.scatter(cur_trajectory[1:, 0].cpu().numpy(), cur_trajectory[1:, 1].cpu().numpy(), label='recorded trajectory', alpha=0.5)
-    # plt.scatter(EKF_resx.cpu().numpy(), EKF_resy.cpu().numpy(), label='EKF trajectory', alpha=0.5)
-    plt.scatter(smooth_resx.cpu().numpy(), smooth_resy.cpu().numpy(), label='Smooth trajectory')
-    plt.legend()
-    plt.show()
-    return smooth_res_state
+def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_size):
+    list_total_state_batch_start_point = []
+    for trajectory_index in range(len(trajectory)):
+        cur_trajectory = trajectory[trajectory_index]
+        cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
+        dyna_params = in_dyna_params.clone().detach()
+        R = torch.zeros((3, 3), device=device)
+        R[0][0] = covariance_params[0]
+        R[1][1] = covariance_params[1]
+        R[2][2] = covariance_params[2]
+        Q = torch.zeros((6, 6), device=device)
+        Q[0][0] = covariance_params[3]
+        Q[1][1] = covariance_params[3]
+        Q[2][2] = covariance_params[4]
+        Q[3][3] = covariance_params[4]
+        Q[4][4] = covariance_params[5]
+        Q[5][5] = covariance_params[6]
+        P = torch.eye(6, device=device) * 0.01
+        system = torch_air_hockey_baseline.SystemModel(tableDamping=dyna_params[1], tableFriction=dyna_params[0],
+                                                       tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
+                                                       puckRadius=0.03165, malletRadius=0.04815,
+                                                       tableRes=dyna_params[3],
+                                                       malletRes=0.8, rimFriction=dyna_params[2], dt=1 / 120)
+        table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
+                                                         puckRadius=0.03165, restitution=dyna_params[2],
+                                                         rimFriction=dyna_params[3], dt=1 / 120)
+        init_state = calculate_init_state(cur_trajectory)
+        u = 1 / 120
+        puck_EKF = air_hockey_EKF(u, system, table, Q, R, P)
+        puck_EKF.init_state(init_state)
+        EKF_res_state = [init_state]
+        EKF_resx = [init_state[0]]
+        EKF_resy = [init_state[1]]
+        EKF_res_P = []
+        EKF_res_dynamic = []
+        EKF_res_collision = []
+        EKF_res_update = []
+        i = 0
+        j = 1
+        length = len(cur_trajectory)
+        time_EKF = []
+        while j < length - 1:
+            i += 1
+            time_EKF.append(i / 120)
+            puck_EKF.predict()
+            EKF_res_state.append(puck_EKF.predict_state)
+            EKF_res_P.append(puck_EKF.P)
+            EKF_res_dynamic.append(puck_EKF.F)
+            EKF_res_collision.append(puck_EKF.has_collision)
+            EKF_resx.append(puck_EKF.predict_state[0])
+            EKF_resy.append(puck_EKF.predict_state[1])
+            if (i - 0.2) / 120 < cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] < (i + 0.2) / 120:
+                puck_EKF.update(cur_trajectory[j + 1][0:3])
+                j += 1
+                EKF_res_update.append(True)
+            elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.2) / 120:
+                j = j + 1
+                puck_EKF.state = puck_EKF.predict_state
+                EKF_res_update.append(False)
+            else:
+                puck_EKF.state = puck_EKF.predict_state
+                EKF_res_update.append(False)
+        smooth_res_state = [EKF_res_state[-1]]
+        smooth_resx = [EKF_resx[-1]]
+        smooth_resy = [EKF_resy[-1]]
+        xs = EKF_res_state[-1]
+        ps = EKF_res_P[-1]
+        time = len(EKF_res_state)
+        i = 0
+        for j in range(time - 2):
+            xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
+            # if not EKF_res_collision[-j - 1]:
+            #     if torch.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+            #                EKF_res_state[-j - 2][3]) > 1e-6:
+            #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
+            #                 system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
+            #                                                                                           2:4] / torch.sqrt(
+            #             EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+            #             EKF_res_state[-j - 2][3]))
+            #     else:
+            #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
+            pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
+            c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
+            if abs(xs[4] - xp[4]) > pi:
+                xp[4] = xp[4] - torch.sign(xp[4]) * 2 * pi
+            if xs[5] * xp[5] < 0:
+                xs[5] = -xs[5]
+            xs = EKF_res_state[-j - 2] + c @ (xs - xp)
+            ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
+            if EKF_res_update[-j - 2]:
+                smooth_res_state.append(xs)
+                smooth_resx.append(xs[0].cpu().numpy())
+                smooth_resy.append(xs[1].cpu().numpy())
+        for j in range(len(smooth_res_state) + 1):
+            if j % batch_size == 0:
+                cur_state = smooth_res_state[-1]
+                index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
+                list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
+    # EKF_resx = torch.tensor(EKF_resx, device=device)
+    # EKF_resy = torch.tensor(EKF_resy, device=device)
+    # smooth_resx = torch.tensor(smooth_resx, device=device)
+    # smooth_resy = torch.tensor(smooth_resy, device=device)
+    # plt.figure()
+    # plt.scatter(cur_trajectory[1:, 0].cpu().numpy(), cur_trajectory[1:, 1].cpu().numpy(), label='recorded trajectory', alpha=0.5)
+    # # plt.scatter(EKF_resx.cpu().numpy(), EKF_resy.cpu().numpy(), label='EKF trajectory', alpha=0.5)
+    # plt.scatter(smooth_resx.cpu().numpy(), smooth_resy.cpu().numpy(), label='Smooth trajectory')
+    # plt.legend()
+    # plt.show()
+    return list_total_state_batch_start_point
 
 
-init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
-init_params.requires_grad = True
-covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
-res = state_kalman_smooth(total_trajectory_after_clean[6], init_params, covariance_params)
+# init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
+# init_params.requires_grad = True
+# covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
+# res = state_kalman_smooth(total_trajectory_after_clean[0:5], init_params, covariance_params, 20)
 # print(res)
 
 
@@ -174,76 +184,72 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
 
     # input batch trajectory and
-    def loss_kalman_smooth(self, state, batch_trajectory):
-        batch_trajectory = torch.tensor(batch_trajectory, device=device).float()
-        EKF_res_state = [state]
-        EKF_res_P = []
-        EKF_res_dynamic = []
-        EKF_res_collision = []
-        EKF_res_update = []
-        self.puck_EKF.refresh(self.P, self.Q, self.R)
-        i = 0
-        j = 1
-        self.puck_EKF.init_state(state)
-        length = len(batch_trajectory)
-        while j < length - 1:
-            i += 1
-            self.puck_EKF.predict()
-            EKF_res_state.append(self.puck_EKF.predict_state)
-            EKF_res_P.append(self.puck_EKF.P)
-            EKF_res_dynamic.append(self.puck_EKF.F)
-            EKF_res_collision.append(self.puck_EKF.has_collision)
-            if (i - 0.2) / 120 < batch_trajectory[j + 1][-1] - batch_trajectory[1][-1] < (i + 0.2) / 120:
-                self.puck_EKF.update(batch_trajectory[j + 1][0:3])
-                j += 1
-                EKF_res_update.append(True)
-            elif batch_trajectory[j + 1][-1] - batch_trajectory[1][-1] <= (i - 0.2) / 120:
-                j = j + 1
-                self.puck_EKF.state = self.puck_EKF.predict_state
-                EKF_res_update.append(False)
-            else:
-                self.puck_EKF.state = self.puck_EKF.predict_state
-                EKF_res_update.append(False)
+    def loss_kalman_smooth(self, state_list, list_index, batch_size):
         evaluation = 0
         num_evaluation = 0
-        time = len(EKF_res_state)
-        i = 0
-        xs = EKF_res_state[-1]
-        ps = EKF_res_P[-1]
-        for j in range(time - 2):
-            if EKF_res_update[-1 - j]:
+        for batch_index in list_index:
+            trajectory_index = state_list[batch_index][0]
+            start_point_index = state_list[batch_index][1]
+            batch_trajectory = torch.tensor(
+                total_trajectory_after_clean[int(trajectory_index)][int(start_point_index):int(start_point_index) + batch_size],
+                device=device).float()
+            if len(batch_trajectory) <= 2:
+                continue
+            state = state_list[batch_index][2:]
+            EKF_res_state = [state]
+            EKF_res_P = []
+            EKF_res_dynamic = []
+            EKF_res_collision = []
+            EKF_res_update = []
+            self.puck_EKF.refresh(self.P, self.Q, self.R)
+            i = 0
+            j = 1
+            self.puck_EKF.init_state(state)
+            length = len(batch_trajectory)
+            while j < length - 1:
                 i += 1
-                innovation = batch_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
-                if xs[4] * batch_trajectory[-i, 2] < 0:
-                    innovation[2] = 2 * pi + torch.sign(xs[4]) * (batch_trajectory[-i, 2] - xs[4])
-                innovation_covariance = self.puck_EKF.H @ ps
-                sign, logdet = torch.linalg.slogdet(innovation_covariance)
-                num_evaluation += 1
-                evaluation = evaluation + (sign * torch.exp(logdet) + innovation.T @ torch.linalg.inv(innovation_covariance) @ innovation)
-            xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
-            pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + self.Q
-            c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
-            if abs(xs[4] - xp[4]) > pi:
-                xp[4] = xp[4] - torch.sign(xp[4]) * 2 * pi
-            if xs[5] * xp[5] < 0:
-                xs[5] = -xs[5]
-            xs = EKF_res_state[-j - 2] + c @ (xs - xp)
-            ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
+                self.puck_EKF.predict()
+                EKF_res_state.append(self.puck_EKF.predict_state)
+                EKF_res_P.append(self.puck_EKF.P)
+                EKF_res_dynamic.append(self.puck_EKF.F)
+                EKF_res_collision.append(self.puck_EKF.has_collision)
+                if (i - 0.2) / 120 < batch_trajectory[j + 1][-1] - batch_trajectory[1][-1] < (i + 0.2) / 120:
+                    self.puck_EKF.update(batch_trajectory[j + 1][0:3])
+                    j += 1
+                    EKF_res_update.append(True)
+                elif batch_trajectory[j + 1][-1] - batch_trajectory[1][-1] <= (i - 0.2) / 120:
+                    j = j + 1
+                    self.puck_EKF.state = self.puck_EKF.predict_state
+                    EKF_res_update.append(False)
+                else:
+                    self.puck_EKF.state = self.puck_EKF.predict_state
+                    EKF_res_update.append(False)
+            time = len(EKF_res_state)
+            i = 0
+            xs = EKF_res_state[-1]
+            ps = EKF_res_P[-1]
+            # kalman smooth
+            for j in range(time - 2):
+                if EKF_res_update[-1 - j]:
+                    i += 1
+                    innovation = batch_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
+                    if xs[4] * batch_trajectory[-i, 2] < 0:
+                        innovation[2] = 2 * pi + torch.sign(xs[4]) * (batch_trajectory[-i, 2] - xs[4])
+                    innovation_covariance = self.puck_EKF.H @ ps @ self.puck_EKF.H.T + self.puck_EKF.R
+                    sign, logdet = torch.linalg.slogdet(innovation_covariance)
+                    num_evaluation += 1
+                    evaluation = evaluation + (sign * torch.exp(logdet) + innovation@ torch.linalg.inv(
+                        innovation_covariance) @ innovation)
+                xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
+                pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + self.Q
+                c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
+                if abs(xs[4] - xp[4]) > pi:
+                    xp[4] = xp[4] - torch.sign(xp[4]) * 2 * pi
+                if xs[5] * xp[5] < 0:
+                    xs[5] = -xs[5]
+                xs = EKF_res_state[-j - 2] + c @ (xs - xp)
+                ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
         return evaluation / num_evaluation
-
-
-class double_dataset(Dataset):
-    def __init__(self, dataset1, dataset2):
-        self.dataset1 = dataset1
-        self.dataset2 = dataset2
-
-    def __getitem__(self, index):
-        x1 = self.dataset1[index]
-        x2 = self.dataset2[index]
-        return x1, x2
-
-    def __len__(self):
-        return len(self.dataset1)
 
 
 if __name__ == '__main__':
@@ -255,16 +261,17 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     Batch_size = 50
     epoch = 0
-    for t in range(100):
-        for j in len(total_trajectory_after_clean):
+    for t in range(10):
+        state_list = state_kalman_smooth(total_trajectory_after_clean, model.dyna_params, covariance_params, Batch_size)
+        index_list = range(len(state_list))
+        loader = Data.DataLoader(index_list, batch_size=Batch_size, shuffle=True)
+        for index_batch in loader:
             optimizer.zero_grad()
-            state_list = state_kalman_smooth(total_trajectory_after_clean[j], model.dyna_params, covariance_params)
-            dataset = double_dataset(total_trajectory_after_clean[j][2:], state_list)
-            loader = Data.DataLoader(dataset, batch_size=Batch_size)
-            for batch_data in loader:
-                optimizer.zero_grad()
-                state = torch.zeros(6)
-                # state[0:3] = batch_data[0][0][0:3]
-                # state[3:] = batch_data[1][0][2, 3, 5]
-                loss = model.loss_kalman_smooth()
+            loss = model.loss_kalman_smooth(state_list, index_batch, Batch_size)
+            loss.backward()
+            print(str(epoch)+' loss ' + str(loss))
+            print('params ' + str(model.get_parameter('dyna_params').data))
+            print('grad ' + str(model.get_parameter('dyna_params').grad))
+            optimizer.step()
+            epoch += 1
 
