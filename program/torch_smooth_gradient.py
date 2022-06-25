@@ -4,7 +4,8 @@ from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from matplotlib import pyplot as plt
 import torch
-import torch_air_hockey_baseline
+import torch_air_hockey_baseline_no_detach as torch_air_hockey_baseline
+# import torch_air_hockey_baseline
 from torch_EKF_Wrapper import air_hockey_EKF
 from math import pi
 
@@ -232,13 +233,17 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
             for j in range(time - 2):
                 if EKF_res_update[-1 - j]:
                     i += 1
-                    innovation = batch_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
+                    innovation = torch.zeros(3, device=device)
+                    innovation[0] = batch_trajectory[-i, 0] - xs[0]
+                    innovation[1] = batch_trajectory[-i, 1] - xs[1]
+                    innovation[2] = batch_trajectory[-i, 2] - xs[4]
+                    # innovation = batch_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
                     if xs[4] * batch_trajectory[-i, 2] < 0:
                         innovation[2] = 2 * pi + torch.sign(xs[4]) * (batch_trajectory[-i, 2] - xs[4])
                     innovation_covariance = self.puck_EKF.H @ ps @ self.puck_EKF.H.T + self.puck_EKF.R
                     sign, logdet = torch.linalg.slogdet(innovation_covariance)
                     num_evaluation += 1
-                    evaluation = evaluation + (sign * torch.exp(logdet) + innovation@ torch.linalg.inv(
+                    evaluation = evaluation + (sign * torch.exp(logdet) + innovation @ torch.linalg.inv(
                         innovation_covariance) @ innovation)
                 xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
                 pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + self.Q

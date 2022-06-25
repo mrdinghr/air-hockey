@@ -8,9 +8,16 @@ import torch
 import torch.utils.data as Data
 from torch.utils.data import Dataset
 
-a = torch.tensor([0,1,2])
-b=[0,1,2]
-print(b[a[0]])
+a = torch.tensor([0.,1.,2.])
+a.requires_grad= True
+b = torch.zeros(2)
+b[1] = a[1]
+b[0] = a[2]
+b = torch.zeros(2)
+b[1] = a[0]
+b[0] = a[0]
+
+print(b)
 
 
 
