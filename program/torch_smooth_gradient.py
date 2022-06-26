@@ -12,7 +12,7 @@ from math import pi
 device = torch.device("cuda")
 table_length = 1.948
 total_trajectory_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
-train_trajectory = total_trajectory_after_clean[65:70]
+train_trajectory = total_trajectory_after_clean[10:12]
 test_trajectory = total_trajectory_after_clean[10:12]
 
 
@@ -143,9 +143,9 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
                 smooth_res_state.append(xs)
                 smooth_resx.append(xs[0].cpu().numpy())
                 smooth_resy.append(xs[1].cpu().numpy())
-        for j in range(len(smooth_res_state) + 1):
+        for j in range(len(smooth_res_state)):
             if j % batch_size == 0:
-                cur_state = smooth_res_state[-1]
+                cur_state = smooth_res_state[-j - 1]
                 index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
                 list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
     # EKF_resx = torch.tensor(EKF_resx, device=device)
@@ -184,7 +184,18 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         self.table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
                                                               puckRadius=0.03165,
                                                               restitution=self.dyna_params[2],
-                                                              rimFriction=self.dyna_params[3], dt=1 / 120)
+                                                              rimFriction=self.dyna_params[3],
+                                                              dt=1 / 120)
+        # self.system = torch_air_hockey_baseline.SystemModel(tableDamping=0.5*(torch.tanh(self.dyna_params[1]) + 1),
+        #                                                     tableFriction=0.5*(torch.tanh(self.dyna_params[0]) + 1),
+        #                                                     tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
+        #                                                     puckRadius=0.03165, malletRadius=0.04815,
+        #                                                     tableRes=0.5*(torch.tanh(self.dyna_params[3]) + 1),
+        #                                                     malletRes=0.8, rimFriction=self.dyna_params[2], dt=1 / 120)
+        # self.table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
+        #                                                       puckRadius=0.03165,
+        #                                                       restitution=0.5*(torch.tanh(self.dyna_params[2]) + 1),
+        #                                                       rimFriction=0.5*(torch.tanh(self.dyna_params[3]) + 1), dt=1 / 120)
         self.R = torch.zeros((3, 3), device=device)
         self.R[0][0] = self.covariance_params[0]
         self.R[1][1] = self.covariance_params[1]
@@ -211,7 +222,13 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
                 device=device).float()
             if len(batch_trajectory) <= 2:
                 continue
-            state = state_list[batch_index][2:]
+            state = torch.zeros(6, device=device)
+            state[0] = batch_trajectory[0][0]
+            state[1] = batch_trajectory[0][1]
+            state[4] = batch_trajectory[0][2]
+            state[2] = state_list[batch_index][4]
+            state[3] = state_list[batch_index][5]
+            state[5] = state_list[batch_index][7]
             EKF_res_state = [state]
             EKF_res_P = []
             EKF_res_dynamic = []
@@ -251,10 +268,11 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
                     innovation = torch.zeros(3, device=device)
                     innovation[0] = batch_trajectory[-i, 0] - xs[0]
                     innovation[1] = batch_trajectory[-i, 1] - xs[1]
-                    innovation[2] = batch_trajectory[-i, 2] - xs[4]
                     # innovation = batch_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
                     if xs[4] * batch_trajectory[-i, 2] < 0:
                         innovation[2] = 2 * pi + torch.sign(xs[4]) * (batch_trajectory[-i, 2] - xs[4])
+                    else:
+                        innovation[2] = batch_trajectory[-i, 2] - xs[4]
                     innovation_covariance = self.puck_EKF.H @ ps @ self.puck_EKF.H.T + self.puck_EKF.R
                     sign, logdet = torch.linalg.slogdet(innovation_covariance)
                     num_evaluation += 1
@@ -279,27 +297,45 @@ if __name__ == '__main__':
     model = Kalman_Smooth_Gradient(init_params, covariance_params)
     lr = 1e-3
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    Batch_size = 50
+    Batch_size = 5
+    batch_trajectory_size = 30
     epoch = 0
-    writer = SummaryWriter('./smooth')
-    for t in range(100):
-        state_list, train_loss = state_kalman_smooth(train_trajectory, model.dyna_params, covariance_params, Batch_size, False)
+    writer = SummaryWriter('./smoot')
+    for t in range(10):
+        state_list, train_loss = state_kalman_smooth(train_trajectory, model.dyna_params, covariance_params, batch_trajectory_size, False)
+        # state_list, train_loss = state_kalman_smooth(train_trajectory, 0.5*(torch.tanh(model.dyna_params.clone()) + 1), covariance_params, batch_trajectory_size, False)
         index_list = range(len(state_list))
         loader = Data.DataLoader(index_list, batch_size=Batch_size, shuffle=True)
+        print(str(t)+' epoch')
+        print('train loss ' + str(train_loss))
+        # loss = model.loss_kalman_smooth(state_list, index_list, batch_trajectory_size, train_trajectory)
+        # print(loss)
+        # loss.backward(retain_graph=True)
+        # optimizer.step()
+        # optimizer.zero_grad()
         for index_batch in loader:
             optimizer.zero_grad()
-            loss = model.loss_kalman_smooth(state_list, index_batch, Batch_size, train_trajectory)
+            loss = model.loss_kalman_smooth(state_list, index_batch, batch_trajectory_size, train_trajectory)
             loss.backward()
             print(str(epoch)+' loss ' + str(loss))
             print('params ' + str(model.get_parameter('dyna_params').data))
             print('grad ' + str(model.get_parameter('dyna_params').grad))
             optimizer.step()
             epoch += 1
-        test_loss = state_kalman_smooth(test_trajectory, model.dyna_params, covariance_params, Batch_size, True)
+            for p in model.get_parameter('dyna_params'):
+                p.data.clamp_(0, 1)
+        test_loss = state_kalman_smooth(test_trajectory, model.dyna_params,
+                                        covariance_params, batch_trajectory_size, True)
+        # test_loss = state_kalman_smooth(test_trajectory, 0.5*(torch.tanh(model.dyna_params.clone()) + 1), covariance_params, batch_trajectory_size, True)
         writer.add_scalar('loss of train set', train_loss, t)
         writer.add_scalar('loss of test set', test_loss, t)
         writer.add_scalar('table damping', model.dyna_params[1], t)
         writer.add_scalar('table friction', model.dyna_params[0], t)
         writer.add_scalar('table restitution', model.dyna_params[2], t)
         writer.add_scalar('rim friction', model.dyna_params[3], t)
+        # writer.add_scalar('table damping', 0.5 * (torch.tanh(model.dyna_params[1]) + 1), t)
+        # writer.add_scalar('table friction', 0.5 * (torch.tanh(model.dyna_params[0]) + 1), t)
+        # writer.add_scalar('table restitution', 0.5 * (torch.tanh(model.dyna_params[2]) + 1), t)
+        # writer.add_scalar('rim friction', 0.5 * (torch.tanh(model.dyna_params[3]) + 1), t)
         print('test loss ' + str(test_loss))
+    writer.close()
