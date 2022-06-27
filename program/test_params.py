@@ -25,6 +25,7 @@ def plot_trajectory(index, params):
     plt.scatter(data_set[trajectory_index][:, 0], data_set[trajectory_index][:, 1], label='record data', c='r')
     plt.scatter(data_set[trajectory_index][0, 0], data_set[trajectory_index][0, 1], c='g', marker='*', s=80)
     plt.legend()
+    plt.show()
 
 
 # input: state_list:calculated by EKF and kalman smooth, correspond trajectory
