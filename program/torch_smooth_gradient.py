@@ -43,10 +43,10 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
     list_total_state_batch_start_point = []
     evaluation = 0
     num_evaluation = 0
+    dyna_params = in_dyna_params.clone().detach()
     for trajectory_index in range(len(trajectory)):
         cur_trajectory = trajectory[trajectory_index]
         cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
-        dyna_params = in_dyna_params.clone().detach()
         R = torch.zeros((3, 3), device=device)
         R[0][0] = covariance_params[0]
         R[1][1] = covariance_params[1]
@@ -125,16 +125,16 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
                 evaluation = evaluation + (sign * torch.exp(logdet) + innovation @ torch.linalg.inv(
                     innovation_covariance) @ innovation)
             xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
-            # if not EKF_res_collision[-j - 1]:
-            #     if torch.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-            #                EKF_res_state[-j - 2][3]) > 1e-6:
-            #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
-            #                 system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
-            #                                                                                           2:4] / torch.sqrt(
-            #             EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-            #             EKF_res_state[-j - 2][3]))
-            #     else:
-            #         xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
+            if not EKF_res_collision[-j - 1]:
+                if torch.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                           EKF_res_state[-j - 2][3]) > 1e-6:
+                    xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
+                            system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[-j - 2][
+                                                                                                      2:4] / torch.sqrt(
+                        EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                        EKF_res_state[-j - 2][3]))
+                else:
+                    xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
             pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
             c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
             if abs(xs[4] - xp[4]) > pi:
@@ -152,16 +152,15 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
                 cur_state = smooth_res_state[-j - 1]
                 index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
                 list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
-    # EKF_resx = torch.tensor(EKF_resx, device=device)
-    # EKF_resy = torch.tensor(EKF_resy, device=device)
-    # smooth_resx = torch.tensor(smooth_resx, device=device)
-    # smooth_resy = torch.tensor(smooth_resy, device=device)
-    # plt.figure()
-    # plt.scatter(cur_trajectory[1:, 0].cpu().numpy(), cur_trajectory[1:, 1].cpu().numpy(), label='recorded trajectory', alpha=0.5)
-    # # plt.scatter(EKF_resx.cpu().numpy(), EKF_resy.cpu().numpy(), label='EKF trajectory', alpha=0.5)
-    # plt.scatter(smooth_resx.cpu().numpy(), smooth_resy.cpu().numpy(), label='Smooth trajectory')
-    # plt.legend()
-    # plt.show()
+    EKF_resx = torch.tensor(EKF_resx, device=device)
+    EKF_resy = torch.tensor(EKF_resy, device=device)
+    smooth_resx = torch.tensor(smooth_resx, device=device)
+    smooth_resy = torch.tensor(smooth_resy, device=device)
+    plt.scatter(cur_trajectory[1:, 0].cpu().numpy(), cur_trajectory[1:, 1].cpu().numpy(), label='recorded trajectory', alpha=0.5)
+    plt.scatter(EKF_resx.cpu().numpy(), EKF_resy.cpu().numpy(), label='EKF trajectory', alpha=0.5)
+    plt.scatter(smooth_resx.cpu().numpy(), smooth_resy.cpu().numpy(), label='Smooth trajectory')
+    plt.legend()
+    plt.show()
     if if_loss:
         return evaluation / num_evaluation
     return list_total_state_batch_start_point, evaluation / num_evaluation
@@ -169,11 +168,12 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
 
 init_params = torch.Tensor([5.2457e-3, 0.4198, 0.644, 0.05251])
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
-plot_trajectory(66, init_params)
-res, loss = state_kalman_smooth(total_trajectory_after_clean[66:67], init_params, covariance_params, 1, False)
-for i in range(len(res)):
-    plt.scatter(res[i][2].cpu().numpy(), res[i][3].cpu().numpy(), c='g')
-plt.show()
+index = 66
+# plot_trajectory(index, init_params)
+res, loss = state_kalman_smooth(total_trajectory_after_clean[index:index+1], init_params, covariance_params, 1, False)
+# for i in range(len(res)):
+#     plt.scatter(res[i][2].cpu().numpy(), res[i][3].cpu().numpy(), c='g')
+# plt.show()
 
 
 class Kalman_Smooth_Gradient(torch.nn.Module):
