@@ -8,7 +8,7 @@ import torch_air_hockey_baseline_no_detach as torch_air_hockey_baseline
 # import torch_air_hockey_baseline
 from torch_EKF_Wrapper import air_hockey_EKF
 from math import pi
-from test_params import plot_trajectory
+from test_params import plot_with_state_list
 
 device = torch.device("cuda")
 table_length = 1.948
@@ -81,7 +81,7 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
         i = 0
         j = 1
         length = len(cur_trajectory)
-        time_EKF = []
+        time_EKF = [0]
         while j < length - 1:
             i += 1
             time_EKF.append(i / 120)
@@ -105,7 +105,6 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
                 EKF_res_update.append(False)
         EKF_resx = torch.tensor(EKF_resx)
         EKF_resy = torch.tensor(EKF_resy)
-        plt.scatter(EKF_resx, EKF_resy, c='k', label='EKF')
         smooth_res_state = [EKF_res_state[-1]]
         smooth_resx = [EKF_resx[-1]]
         smooth_resy = [EKF_resy[-1]]
@@ -152,15 +151,16 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
                 cur_state = smooth_res_state[-j - 1]
                 index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
                 list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
-    EKF_resx = torch.tensor(EKF_resx, device=device)
-    EKF_resy = torch.tensor(EKF_resy, device=device)
     smooth_resx = torch.tensor(smooth_resx, device=device)
     smooth_resy = torch.tensor(smooth_resy, device=device)
-    plt.scatter(cur_trajectory[1:, 0].cpu().numpy(), cur_trajectory[1:, 1].cpu().numpy(), label='recorded trajectory', alpha=0.5)
-    plt.scatter(EKF_resx.cpu().numpy(), EKF_resy.cpu().numpy(), label='EKF trajectory', alpha=0.5)
-    plt.scatter(smooth_resx.cpu().numpy(), smooth_resy.cpu().numpy(), label='Smooth trajectory')
-    plt.legend()
-    plt.show()
+    plot_with_state_list(EKF_res_state, smooth_res_state, cur_trajectory, time_EKF)
+    # plt.figure()
+    # plt.scatter(cur_trajectory[1:, 0].cpu().numpy(), cur_trajectory[1:, 1].cpu().numpy(), label='recorded trajectory', alpha=0.5)
+    # plt.scatter(EKF_resx.cpu().numpy(), EKF_resy.cpu().numpy(), label='EKF trajectory', alpha=0.5)
+    # plt.scatter(smooth_resx.cpu().numpy(), smooth_resy.cpu().numpy(), label='Smooth trajectory')
+    # plt.legend()
+    #
+    # plt.show()
     if if_loss:
         return evaluation / num_evaluation
     return list_total_state_batch_start_point, evaluation / num_evaluation
