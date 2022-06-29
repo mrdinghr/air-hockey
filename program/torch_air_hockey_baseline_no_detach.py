@@ -260,7 +260,7 @@ class SystemModel:
                                   torch.linalg.norm(vel_prev))
         else:
             vel = vel_prev - u * self.tableDamping * vel_prev
-        ang_vel = ang_vel_prev
+        ang_vel = ang_vel_prev + ang_vel_prev * self.puckRadius**2 * self.tableDamping * u/4
         return torch.cat([pos, vel, torch.atleast_1d(angle), torch.atleast_1d(ang_vel)])
 
     def update_jacobian(self, x, u):
