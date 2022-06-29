@@ -44,9 +44,10 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
     list_total_state_batch_start_point = []
     evaluation = 0
     num_evaluation = 0
-    dyna_params = torch.zeros(4, device=device)
-    dyna_params[0:2] = (torch.tanh(in_dyna_params[0:2].clone().detach()) + 1) * 0.2 / 2
-    dyna_params[2:] = (torch.tanh(in_dyna_params[2:].clone().detach()) + 1)
+    # dyna_params = torch.zeros(4, device=device)
+    # dyna_params[0:2] = (torch.tanh(in_dyna_params[0:2].clone().detach()) + 1) * 0.2 / 2
+    # dyna_params[2:] = (torch.tanh(in_dyna_params[2:].clone().detach()) + 1)
+    dyna_params = in_dyna_params
     for trajectory_index in range(len(trajectory)):
         cur_trajectory = trajectory[trajectory_index]
         cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
@@ -102,7 +103,7 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
             elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.2) / 120:
                 j = j + 1
                 puck_EKF.state = puck_EKF.predict_state
-                EKF_res_update.append(False)
+                EKF_res_update.append(0.5)
             else:
                 puck_EKF.state = puck_EKF.predict_state
                 EKF_res_update.append(False)
@@ -145,7 +146,7 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
                 xs[5] = -xs[5]
             xs = EKF_res_state[-j - 2] + c @ (xs - xp)
             ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
-            if EKF_res_update[-j - 2]:
+            if EKF_res_update[-j - 2] or EKF_res_update[-j - 2] == 0.5:
                 smooth_res_state.append(xs)
                 smooth_resx.append(xs[0].cpu().numpy())
                 smooth_resy.append(xs[1].cpu().numpy())
@@ -164,10 +165,11 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
 
 
 # table friction, table damping, table restitution, rim friction
-init_params = torch.Tensor([0.4*0.2159, 0.4*0.2513, 0.7936, 0.4352])
+# init_params = torch.Tensor([0.4*0.2159, 0.4*0.2513, 0.7936, 0.4352])
+init_params = torch.Tensor([0.01, 0.01, 0.8, 0.14])
 # init_params = torch.tanh(torch.tensor([0.125, 0.375, 0.675, 0.6], device=device))
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
-index = 66
+index = 60
 res, loss = state_kalman_smooth(total_trajectory_after_clean[index:index+1], init_params, covariance_params, 1, False)
 plot_trajectory(index, init_params)
 
