@@ -154,8 +154,7 @@ def kalman_smooth(raw_data, system, table):
     # return evaluation/num_evaluation
     # follow code is used to test plot result of kalman smooth. so it s nothing to do with EM process.
     smooth_res_state = np.array(smooth_res_state)
-    return smooth_res_state
-'''
+    # return smooth_res_state
     #  used to plot the result of kalman smooth
     plt.figure()
     table_plot(table)
@@ -288,7 +287,7 @@ def kalman_smooth(raw_data, system, table):
     plt.scatter(time_EKF[:], smooth_res_state[-1::-1, 5], color='r', label='smooth x velocity', s=5)
     plt.legend()
     plt.show()
-'''
+
 
 
 if __name__ == '__main__':
