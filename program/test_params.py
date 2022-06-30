@@ -49,7 +49,7 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.figure()
     plt.scatter(trajectory[1:, 0], trajectory[1:, 1], c='g', label='recorded trajectory', alpha=0.5)
     plt.scatter(EKF_state_list[:, 0], EKF_state_list[:, 1], c='b', label='EKF trajectory', alpha=0.5)
-    # plt.scatter(smooth_state_list[:, 0], smooth_state_list[:, 1], c='r', label='Smooth trajectory')
+    plt.scatter(smooth_state_list[:, 0], smooth_state_list[:, 1], c='r', label='Smooth trajectory')
     plt.legend()
     # position x
     plt.figure()

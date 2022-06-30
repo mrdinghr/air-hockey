@@ -33,13 +33,6 @@ class air_hockey_EKF:
 
     def predict(self):
         self.has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
-        if self.score or self.score_time != 0:
-            self.score_time += 1
-            # self.predict_state = self.state + 0 * self.system.tableDamping
-            self.P = self.P + self.Q_score + self.Q
-            self.F = jacobian.clone()
-            if self.score_time == 5:
-                self.score_time = 0
         # else:
         if self.has_collision:
             self.F = jacobian.clone()
@@ -48,6 +41,12 @@ class air_hockey_EKF:
             self.predict_state = self.system.f(self.state, self.u)
 
         self.P = self.F @ self.P @ self.F.T + self.Q
+        if self.score or self.score_time != 0:
+            self.score_time += 1
+            # self.predict_state = self.state + 0 * self.system.tableDamping
+            self.P = self.P + self.Q_score
+            if self.score_time == 5:
+                self.score_time = 0
 
     def update(self, measure):
         # measurement residual
