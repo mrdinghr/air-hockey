@@ -10,7 +10,7 @@ device = torch.device("cuda")
 
 # table friction, table damping, table restitution, rim friction
 def plot_trajectory(index, params):
-    data_set = np.load('total_data_after_clean.npy', allow_pickle=True)
+    data_set = np.load('new_total_data_after_clean.npy', allow_pickle=True)
     # data_set = np.load('example_data.npy')
     params = params.cpu().numpy()
     trajectory_index = index  # choose which trajectory to test, current total 150 trajectories 2022.06.21
