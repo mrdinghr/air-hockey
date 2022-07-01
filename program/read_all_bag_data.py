@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 cmp = np.load('2021-09-13-17-23-11.npy')
 root_dir = os.path.abspath(os.path.dirname(__file__) + '/..')
-data_dir = os.path.join(root_dir, 'rosdata')
+data_dir = os.path.join(root_dir, 'puck_record')
 file_name = os.listdir(data_dir)
 result = []
 for cur_file_name in file_name:
@@ -30,5 +30,5 @@ for cur_file_name in file_name:
     measurement = np.array(measurement)
     measurement[:, -1] -= measurement[0, -1]
     result.append(measurement)
-np.save('total_data', result)
+np.save('new_total_data', result)
 

@@ -8,16 +8,22 @@ import torch
 import torch.utils.data as Data
 from torch.utils.data import Dataset
 
-a = torch.tensor([0.,1.,2.])
-a.requires_grad= True
-b = torch.zeros(2)
-b[1] = a[1]
-b[0] = a[2]
-b = torch.zeros(2)
-b[1] = a[0]
-b[0] = a[0]
 
-print(b)
+data = np.load('new_total_data_after_clean.npy', allow_pickle=True)
+for i in range(len(data)):
+    plt.figure()
+    plt.plot(data[i][:, 0], data[i][:,1])
+plt.show()
+# a = torch.tensor([0.,1.,2.])
+# a.requires_grad= True
+# b = torch.zeros(2)
+# b[1] = a[1]
+# b[0] = a[2]
+# b = torch.zeros(2)
+# b[1] = a[0]
+# b[0] = a[0]
+#
+# print(b)
 
 
 
@@ -195,7 +201,7 @@ def state_kalman_smooth(cur_trajectory, dyna_params, covariance_params):
 '''
 #  clean all trajectory data: throw no move part
 table_length = 1.948
-result = np.load('total_data.npy', allow_pickle=True)
+result = np.load('new_total_data.npy', allow_pickle=True)
 result_clean = [[] for i in range(len(result))]
 for i in range(len(result)):
     for j in range(1, len(result[i])):
@@ -208,7 +214,7 @@ for i in range(len(result_clean)):
         i_data[0] += table_length / 2
 for i in range(len(result_clean)):
     result_clean[i] = np.array(result_clean[i])
-np.save('total_data_after_clean', result_clean)
+np.save('new_total_data_after_clean', result_clean)
 '''
 
 # a = result[0]
