@@ -8,12 +8,16 @@ import torch
 import torch.utils.data as Data
 from torch.utils.data import Dataset
 
+a =[True,False,False,False,False,False,True]
+if True in a[0:100]:
+    print(True)
 
-data = np.load('new_total_data_after_clean.npy', allow_pickle=True)
-for i in range(len(data)):
-    plt.figure()
-    plt.plot(data[i][:, 0], data[i][:,1])
-plt.show()
+
+# data = np.load('new_total_data_after_clean.npy', allow_pickle=True)
+# for i in range(len(data)):
+#     plt.figure()
+#     plt.plot(data[i][:, 0], data[i][:,1])
+# plt.show()
 # a = torch.tensor([0.,1.,2.])
 # a.requires_grad= True
 # b = torch.zeros(2)

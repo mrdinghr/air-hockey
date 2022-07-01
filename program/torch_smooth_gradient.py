@@ -14,7 +14,7 @@ from test_params import plot_trajectory
 device = torch.device("cuda")
 table_length = 1.948
 total_trajectory_after_clean = np.load('new_total_data_after_clean.npy', allow_pickle=True)
-train_trajectory = total_trajectory_after_clean[2:5]
+train_trajectory = total_trajectory_after_clean[0:5]
 test_trajectory = total_trajectory_after_clean[8:10]
 
 
@@ -151,10 +151,16 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
                 smooth_resx.append(xs[0].cpu().numpy())
                 smooth_resy.append(xs[1].cpu().numpy())
         for j in range(len(smooth_res_state)):
-            if j % (batch_size / 100) == 0:
-                cur_state = smooth_res_state[-j - 1]
-                index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
-                list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
+            if True in EKF_res_collision[j: j + batch_size]:
+                if j % (batch_size / batch_size) == 0:
+                    cur_state = smooth_res_state[-j - 1]
+                    index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
+                    list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
+            else:
+                if j % (batch_size / 2) == 0:
+                    cur_state = smooth_res_state[-j - 1]
+                    index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
+                    list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
     # smooth_resx = torch.tensor(smooth_resx, device=device)
     # smooth_resy = torch.tensor(smooth_resy, device=device)
     # plot_with_state_list(EKF_res_state, smooth_res_state, cur_trajectory, time_EKF)
@@ -311,11 +317,15 @@ if __name__ == '__main__':
     model = Kalman_Smooth_Gradient(init_params, covariance_params)
     lr = 1e-4
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    Batch_size = 20
+    Batch_size = 10
     batch_trajectory_size = 10
     epoch = 0
-    writer = SummaryWriter('./test')
+    writer = SummaryWriter('./smooth71')
     for t in range(200):
+        writer.add_scalar('table damping', 0.2 * (torch.tanh(model.params[1]) + 1), t)
+        writer.add_scalar('table friction', 0.2 * (torch.tanh(model.params[0]) + 1), t)
+        writer.add_scalar('table restitution', (torch.tanh(model.params[2]) + 1), t)
+        writer.add_scalar('rim friction', (torch.tanh(model.params[3]) + 1), t)
         state_list, train_loss = state_kalman_smooth(train_trajectory, model.params, covariance_params, batch_trajectory_size, False)
         # state_list, train_loss = state_kalman_smooth(train_trajectory, 0.5*(torch.tanh(model.dyna_params.clone()) + 1), covariance_params, batch_trajectory_size, False)
         index_list = range(len(state_list))
@@ -352,11 +362,10 @@ if __name__ == '__main__':
         # writer.add_scalar('table friction', model.dyna_params[0], t)
         # writer.add_scalar('table restitution', model.dyna_params[2], t)
         # writer.add_scalar('rim friction', model.dyna_params[3], t)
-        writer.add_scalar('table damping', 0.2 * (torch.tanh(model.params[1]) + 1), t)
-        writer.add_scalar('table friction', 0.2 * (torch.tanh(model.params[0]) + 1), t)
-        writer.add_scalar('table restitution', (torch.tanh(model.params[2]) + 1), t)
-        writer.add_scalar('rim friction', (torch.tanh(model.params[3]) + 1), t)
+
         print('test loss ' + str(test_loss))
+    writer.add_scalar('table damping', 0.2 * (torch.tanh(model.params[1]) + 1), t+1)
+    writer.add_scalar('table friction', 0.2 * (torch.tanh(model.params[0]) + 1), t+1)
+    writer.add_scalar('table restitution', (torch.tanh(model.params[2]) + 1), t+1)
+    writer.add_scalar('rim friction', (torch.tanh(model.params[3]) + 1), t+1)
     writer.close()
-
-
