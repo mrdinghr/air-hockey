@@ -172,11 +172,11 @@ def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_siz
 
 # table friction, table damping, table restitution, rim friction
 # init_params = torch.Tensor([0.4*0.2159, 0.4*0.2513, 0.7936, 0.4352])
-init_params = torch.Tensor([0.1956, 0.2012, 0.8028, 0.09401])
+init_params = torch.Tensor([0.005, 0.01, 0.965, 0.07])
 # init_params = torch.tanh(torch.tensor([0.125, 0.375, 0.675, 0.6], device=device))
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
 index = 5
-res, loss = state_kalman_smooth(total_trajectory_after_clean[index:index+1], init_params, covariance_params, 1, False)
+# res, loss = state_kalman_smooth(total_trajectory_after_clean[index:index+1], init_params, covariance_params, 1, False)
 plot_trajectory(index, init_params)
 
 

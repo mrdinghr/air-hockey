@@ -15,7 +15,7 @@ def plot_trajectory(index, params):
     params = params.cpu().numpy()
     trajectory_index = index  # choose which trajectory to test, current total 150 trajectories 2022.06.21
     init_state = calculate_init_state(data_set[trajectory_index]).cpu().numpy()
-    state_num = 100
+    state_num = 150
     table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
                                                restitution=params[2], rimFriction=params[3], dt=1 / 120)
     system = air_hockey_baseline.SystemModel(tableDamping=params[1], tableFriction=params[0], tableLength=1.948,
