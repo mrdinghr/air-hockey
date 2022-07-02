@@ -63,9 +63,9 @@ class EKFGradient(torch.nn.Module):
         self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1], tableFriction=self.dyna_params[0],
                                                        tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
                                                        puckRadius=0.03165, malletRadius=0.04815, tableRes=self.dyna_params[2],
-                                                       malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
+                                                       malletRes=0.8, rimFriction=self.dyna_params[3], dt=1 / 120)
         self.table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                                         restitution=self.dyna_params[2], rimFriction=0.1418, dt=1 / 120)
+                                                         restitution=self.dyna_params[2], rimFriction=self.dyna_params[3], dt=1 / 120)
 
         self.R = torch.zeros((3, 3), device=device)
         self.R[0][0] = self.covariance_params[0]
@@ -123,7 +123,7 @@ class EKFGradient(torch.nn.Module):
         return torch.mean(evaluation)
 
 
-init_params = torch.Tensor([0.125, 0.375, 0.6749999523162842])
+init_params = torch.Tensor([0.125, 0.375, 0.6749999523162842, 0.2])
 covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
 model = EKFGradient(init_params, covariance_params)
 all_data = np.load('total_data.npy', allow_pickle=True)
