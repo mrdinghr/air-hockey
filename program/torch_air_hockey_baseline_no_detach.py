@@ -168,7 +168,7 @@ class AirHockeyTable:
                 '''
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
-                weight = torch.sigmoid(100 * weight)
+                weight = torch.sigmoid(30 * weight)
                 slideDir = (vtScalar + ang_vel * self.m_puckRadius) / torch.abs(
                     vtScalar + ang_vel * self.m_puckRadius)
                 # avoid slideDir = nan
