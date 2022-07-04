@@ -8,9 +8,6 @@ import torch
 import torch.utils.data as Data
 from torch.utils.data import Dataset
 
-a =[True,False,False,False,False,False,True]
-if True in a[0:100]:
-    print(True)
 
 
 # data = np.load('new_total_data_after_clean.npy', allow_pickle=True)
