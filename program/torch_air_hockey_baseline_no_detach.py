@@ -105,9 +105,7 @@ class AirHockeyTable:
                 theta_pre = angle + s * ang_vel * self.m_dt
 
                 vecT = v / torch.linalg.norm(v)
-                vecN = torch.zeros(2, device=device)
-                vecN[0] = -v[1] / torch.linalg.norm(v)
-                vecN[1] = v[0] / torch.linalg.norm(v)
+                vecN = torch.stack([-v[1] / torch.linalg.norm(v), v[0] / torch.linalg.norm(v)]).to(device=device)
                 vtScalar = torch.dot(vel, vecT)
                 vnSCalar = torch.dot(vel, vecN)
                 '''
@@ -170,18 +168,18 @@ class AirHockeyTable:
                 vnNextScalar = -self.m_e * vnSCalar
                 cur_state5 = weight * (ang_vel / 3 - 2 * vtScalar / (3 * self.m_puckRadius)) + (1 - weight) * (
                         ang_vel + 2 * self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar / self.m_puckRadius)
-                self.m_jacCollision = torch.eye(6, device=device)
-                self.m_jacCollision[0][2] = self.m_dt
-                self.m_jacCollision[1][3] = self.m_dt
-                self.m_jacCollision[2][2] = weight * 2 / 3
-                self.m_jacCollision[2][3] = (1 - weight) * (self.m_rimFriction * slideDir * (1 + self.m_e))
-                self.m_jacCollision[2][5] = -self.m_puckRadius * weight / 3
-                self.m_jacCollision[3][3] = -self.m_e
-                self.m_jacCollision[4][5] = self.m_dt
-                self.m_jacCollision[5][2] = weight * (-2 / (3 * self.m_puckRadius))
-                self.m_jacCollision[5][3] = (1 - weight) * (self.m_jacCollision[2][3] * 2 / self.m_puckRadius)
-                self.m_jacCollision[5][5] = weight / 3
-                jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
+                m_jacCollision = torch.eye(6, device=device)
+                m_jacCollision[0][2] = self.m_dt
+                m_jacCollision[1][3] = self.m_dt
+                m_jacCollision[2][2] = weight * 2 / 3
+                m_jacCollision[2][3] = (1 - weight) * (self.m_rimFriction * slideDir * (1 + self.m_e))
+                m_jacCollision[2][5] = -self.m_puckRadius * weight / 3
+                m_jacCollision[3][3] = -self.m_e
+                m_jacCollision[4][5] = self.m_dt
+                m_jacCollision[5][2] = weight * (-2 / (3 * self.m_puckRadius))
+                m_jacCollision[5][3] = (1 - weight) * (m_jacCollision[2][3] * 2 / self.m_puckRadius)
+                m_jacCollision[5][5] = weight / 3
+                jacobian = self.m_rimGlobalTransformsInv[i] @ m_jacCollision @ self.m_rimGlobalTransforms[i]
                 if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
                     cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
                 elif theta_pre + (1 - s) * cur_state5 * self.m_dt < -pi:

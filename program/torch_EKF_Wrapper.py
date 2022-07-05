@@ -52,9 +52,9 @@ class AirHockeyEKF:
         # measurement residual
         self.y = measure - self.predict_state[[0, 1, 4]]
         if self.y[2] >= pi:
-            self.y[2] -= pi * 2
+            self.y[2] = self.y[2] - pi * 2
         elif self.y[2] <= -pi:
-            self.y[2] += pi * 2
+            self.y[2] = self.y[2] + pi * 2
         self.S = self.H @ self.P @ self.H.T + self.R
         # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
@@ -147,16 +147,19 @@ class AirHockeyEKF:
             #         xp[2:4] = state_list[idx_prev][2:4] - self.u * system.tableDamping * state_list[idx_prev][2:4]
 
             if xs[4] - xp[4] > 3 / 2 * pi:
-                xp[4] = xp[4] + 2 * pi
+                xp4 = xp[4] + 2 * pi
             elif xs[4] - xp[4] < -3 / 2 * pi:
-                xp[4] = xp[4] - 2 * pi
+                xp4 = xp[4] - 2 * pi
+            else:
+                xp4 = xp[4]
+            xp_new = torch.cat([xp[0:4], torch.atleast_1d(xp4), torch.atleast_1d(xp[5])])
             # if xs[5] * xp[5] < 0:
             #     xs[5] = -xs[5]
 
             predicted_cov = jacobian_list[idx_cur] @ variance_list[idx_prev] @ jacobian_list[idx_cur].T + self.Q
             smooth_gain = variance_list[idx_prev] @ jacobian_list[idx_cur].T @ torch.linalg.inv(predicted_cov)
 
-            xs = state_list[idx_prev] + smooth_gain @ (xs - xp)
+            xs = state_list[idx_prev] + smooth_gain @ (xs - xp_new)
             ps = variance_list[idx_prev] + smooth_gain @ (ps - predicted_cov) @ smooth_gain.T
             if update_list[idx_prev] > 0:
                 smoothed_state_list.append(xs)
