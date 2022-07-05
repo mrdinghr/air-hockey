@@ -1,16 +1,14 @@
 from math import pi
 import torch
-import torch_air_hockey_baseline
+import torch_air_hockey_baseline_no_detach
 from matplotlib import pyplot as plt
 import numpy as np
-device = torch.device("cuda")
 
 
-class air_hockey_EKF:
-    def __init__(self, u, system, table, Q, R, P):
+class AirHockeyEKF:
+    def __init__(self, u, system, Q, R, P, device):
         self.state = None
         self.system = system
-        self.table = table
         self.Q = Q
         self.Q_score = torch.zeros((6, 6), device=device)
         self.Q_score[2][2] = 1
@@ -27,12 +25,14 @@ class air_hockey_EKF:
         self.y = None
         self.S = None
         self.score_time = 0
+        self.device = device
 
-    def init_state(self, state):
+    def initialize(self, state):
         self.state = state
+        self.P = torch.eye(6, device=self.device).float() * 0.01
 
     def predict(self):
-        self.has_collision, self.predict_state, jacobian, self.score = self.table.apply_collision(self.state)
+        self.has_collision, self.predict_state, jacobian, self.score = self.system.apply_collision(self.state)
         # else:
         if self.has_collision:
             self.F = jacobian.clone()
@@ -59,7 +59,7 @@ class air_hockey_EKF:
         # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
         self.state = self.predict_state + K @ self.y
-        self.P = (torch.eye(6, device=device) - K @ self.H) @ self.P
+        self.P = (torch.eye(6, device=self.device) - K @ self.H) @ self.P
 
     def refresh(self, P, Q, R):
         self.P = P
@@ -69,26 +69,114 @@ class air_hockey_EKF:
         self.predict_state = None
         self.y = None
         self.S = None
-        self.u = 1/120
+        self.u = 1 / 120
         self.score = False
         self.has_collision = False
-        self.H = torch.zeros((3, 6), device=device)
+        self.H = torch.zeros((3, 6), device=self.device)
         self.H[0][0] = self.H[1][1] = self.H[2][4] = 1
         self.state = None
 
+    def smooth(self, init_state, trajectory):
+        state_list, variance_list, jacobian_list, collision_list, update_list = self.forward_pass(init_state,
+                                                                                                  trajectory)
+        smoothed_state_list, smoothed_variance_list = self.backward_pass(state_list, variance_list, jacobian_list,
+                                                                         update_list)
+        smoothed_state_list = smoothed_state_list[::-1]
+        smoothed_variance_list = smoothed_variance_list[::-1]
+        collision_list = collision_list[::-1]
+        return smoothed_state_list, smoothed_variance_list, collision_list
+
+    def forward_pass(self, init_state, trajectory):
+        self.initialize(init_state)
+        EKF_res_state = [init_state]
+        EKF_res_P = []
+        EKF_res_dynamic = []
+        EKF_res_collision = []
+        EKF_res_update = []
+        i = 0
+        j = 1
+        length = len(trajectory)
+        time_EKF = [0]
+        while j < length - 1:
+            i += 1
+            time_EKF.append(i / 120)
+            self.predict()
+            EKF_res_state.append(self.predict_state)
+            EKF_res_P.append(self.P)
+            EKF_res_dynamic.append(self.F)
+            EKF_res_collision.append(self.has_collision)
+            if (i - 0.1) / 120 < trajectory[j + 1][-1] - trajectory[1][-1] < (i + 0.1) / 120:
+                self.update(trajectory[j + 1][0:3])
+                j += 1
+                EKF_res_update.append(1)
+            elif trajectory[j + 1][-1] - trajectory[1][-1] <= (i - 0.1) / 120:
+                j = j + 1
+                self.state = self.predict_state
+                EKF_res_update.append(2)
+            else:
+                self.state = self.predict_state
+                EKF_res_update.append(False)
+        return EKF_res_state, EKF_res_P, EKF_res_dynamic, EKF_res_collision, EKF_res_update
+
+    def backward_pass(self, state_list, variance_list, jacobian_list, update_list,
+                      loss_type="log_lik"):
+        smoothed_state_list = [state_list[-1]]
+        smoothed_variance_list = [self.H @ variance_list[-1] @ self.H.T + self.R]
+
+        xs = smoothed_state_list[-1]
+        ps = variance_list[-1]
+        time = len(state_list)
+
+        for j in range(time - 2):
+            idx_cur = - j - 1
+            idx_prev = - j - 2
+
+            has_collision, predict_state, _, _ = self.system.apply_collision(state_list[idx_prev])
+            if not has_collision:
+                xp = self.system.f(state_list[idx_prev], self.u)
+            else:
+                xp = state_list[idx_prev]
+
+            # xp = jacobian_list[idx_cur] @ state_list[idx_prev]
+            # if not collision_list[idx_cur]:
+            #     if torch.linalg.norm(state_list[idx_prev][2:4]) > 1e-6:
+            #         xp[2:4] = state_list[idx_prev][2:4] - self.u * (system.tableDamping * state_list[idx_prev][2:4] +
+            #                                                         system.tableFriction *
+            #                                                         torch.sign(state_list[idx_prev][2:4]))
+            #     else:
+            #         xp[2:4] = state_list[idx_prev][2:4] - self.u * system.tableDamping * state_list[idx_prev][2:4]
+
+            if xs[4] - xp[4] > 3 / 2 * pi:
+                xp[4] = xp[4] + 2 * pi
+            elif xs[4] - xp[4] < -3 / 2 * pi:
+                xp[4] = xp[4] - 2 * pi
+            # if xs[5] * xp[5] < 0:
+            #     xs[5] = -xs[5]
+
+            predicted_cov = jacobian_list[idx_cur] @ variance_list[idx_prev] @ jacobian_list[idx_cur].T + self.Q
+            smooth_gain = variance_list[idx_prev] @ jacobian_list[idx_cur].T @ torch.linalg.inv(predicted_cov)
+
+            xs = state_list[idx_prev] + smooth_gain @ (xs - xp)
+            ps = variance_list[idx_prev] + smooth_gain @ (ps - predicted_cov) @ smooth_gain.T
+            if update_list[idx_prev] > 0:
+                smoothed_state_list.append(xs)
+                smoothed_variance_list.append(self.H @ ps @ self.H.T + self.R)
+        return smoothed_state_list, smoothed_variance_list
+
 
 if __name__ == '__main__':
-
+    device = torch.device("cuda")
     # test for torch_EKF_Wrapper
     # tableDamping = 0.001
     # tableFriction = 0.001
     # tableRestitution = 0.7424
     para = [0.10608561, 0.34085548, 0.78550678]
-    system = torch_air_hockey_baseline.SystemModel(tableDamping=para[1], tableFriction=para[0], tableLength=1.948, tableWidth=1.038,
-                                             goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
-                                             tableRes=para[2], malletRes=0.8, rimFriction=0.1418, dt=1 / 120)
-    table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                               restitution=para[2], rimFriction=0.1418, dt=1 / 120)
+    system = torch_air_hockey_baseline_no_detach.SystemModel(tableDamping=para[1], tableFriction=para[0],
+                                                             tableLength=1.948,
+                                                             tableWidth=1.038,
+                                                             goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
+                                                             tableRes=para[2], malletRes=0.8, rimFriction=0.1418,
+                                                             dt=1 / 120, beta=30)
     R = torch.zeros((3, 3), device=device)
     R[0][0] = 2.5e-7
     R[1][1] = 2.5e-7
@@ -107,29 +195,29 @@ if __name__ == '__main__':
             continue
         data.append(pre_data[i])
     for i_data in data:
-        i_data[0] += table.m_length / 2
+        i_data[0] += system.table.m_length / 2
     data = torch.tensor(np.array(data), device=device).float()
     state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
-                data[2][0] - data[1][0]) / (
+            data[2][0] - data[1][0]) / (
                         data[2][3] - data[1][3]) + (data[3][0] - data[2][0]) / (
-                            data[3][3] - data[2][3])) / 3
+                        data[3][3] - data[2][3])) / 3
     state_dy = ((data[1][1] - data[0][1]) / (data[1][3] - data[0][3]) + (
-                data[2][1] - data[1][1]) / (
+            data[2][1] - data[1][1]) / (
                         data[2][3] - data[1][3]) + (data[3][1] - data[2][1]) / (
-                            data[3][3] - data[2][3])) / 3
+                        data[3][3] - data[2][3])) / 3
     state_dtheta = ((data[1][2] - data[0][2]) / (data[1][3] - data[0][3]) + (
-                data[2][2] - data[1][2]) / (
+            data[2][2] - data[1][2]) / (
                             data[2][3] - data[1][3]) + (data[3][2] - data[2][2]) / (
-                                data[3][3] - data[2][3])) / 3
+                            data[3][3] - data[2][3])) / 3
     state = torch.tensor([data[1][0], data[1][1], state_dx, state_dy, data[1][2], state_dtheta], device=device)
-    puck_EKF = air_hockey_EKF(u=1 / 120, system=system, table=table, Q=Q, R=R, P=P)
-    puck_EKF.init_state(state)
+    puck_EKF = AirHockeyEKF(u=1 / 120, system=system, Q=Q, R=R, P=P)
+    puck_EKF.initialize(state)
     resx = [state[0]]
     resy = [state[1]]
     res_theta = [state[4]]
-    time_EKF = [1/120]
+    time_EKF = [1 / 120]
     j = 1
-    length = len(data)-1
+    length = len(data) - 1
     i = 0
     evaluation = 0
     num_evaluation = 0
@@ -141,13 +229,13 @@ if __name__ == '__main__':
         resy.append(puck_EKF.predict_state[1])
         res_theta.append(puck_EKF.predict_state[4])
         # check whether data is recorded at right time
-        if (i-0.2) / 120 < data[j+1][-1]-data[1][-1] < (i+0.2) / 120:
+        if (i - 0.2) / 120 < data[j + 1][-1] - data[1][-1] < (i + 0.2) / 120:
             puck_EKF.update(data[j + 1][0:3])
             j += 1
             sign, logdet = torch.linalg.slogdet(puck_EKF.S)
             num_evaluation += 1
             evaluation += sign * torch.exp(logdet) + puck_EKF.y @ torch.linalg.inv(puck_EKF.S) @ puck_EKF.y
-        elif data[j+1][-1]-data[1][-1] <= (i-0.2) / 120:
+        elif data[j + 1][-1] - data[1][-1] <= (i - 0.2) / 120:
             j += 1
             puck_EKF.state = puck_EKF.predict_state
         else:
@@ -164,9 +252,9 @@ if __name__ == '__main__':
         data_y_velocity.append((pre_data[i][1] - pre_data[i - 1][1]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
         if abs(pre_data[i][2] - pre_data[i - 1][2]) > pi:
             data_theta_velocity.append(
-        (pre_data[i][2] - np.sign(pre_data[i][2]) * pi) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+                (pre_data[i][2] - np.sign(pre_data[i][2]) * pi) / (pre_data[i][-1] - pre_data[i - 1][-1]))
     else:
-            data_theta_velocity.append((pre_data[i][2] - pre_data[i - 1][2]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
+        data_theta_velocity.append((pre_data[i][2] - pre_data[i - 1][2]) / (pre_data[i][-1] - pre_data[i - 1][-1]))
     plt.figure()
     plt.scatter(data[1:, 0].cpu().numpy(), data[1:, 1].cpu().numpy(), color='g', label='raw data', s=5)
     plt.scatter(resx.cpu().numpy(), resy.cpu().numpy(), color='b', label='EKF', s=5)
@@ -177,12 +265,14 @@ if __name__ == '__main__':
     plt.title('only EKF x position')
     plt.legend()
     plt.subplot(3, 3, 2)
-    plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 0].cpu().numpy(), color='g', label='raw data x position', s=5)
+    plt.scatter(data[1:, -1].cpu().numpy() - data[0][-1].cpu().numpy(), data[1:, 0].cpu().numpy(), color='g',
+                label='raw data x position', s=5)
     plt.title('only raw data x position')
     plt.legend()
     plt.subplot(3, 3, 3)
     plt.scatter(time_EKF, resx.cpu().numpy(), color='b', label='EKF x position', s=5)
-    plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 0].cpu().numpy(), color='g', label='raw data x position', s=5)
+    plt.scatter(data[1:, -1].cpu().numpy() - data[0][-1].cpu().numpy(), data[1:, 0].cpu().numpy(), color='g',
+                label='raw data x position', s=5)
     plt.title('EKF vs raw data x position')
     plt.legend()
     plt.subplot(3, 3, 4)
@@ -190,12 +280,14 @@ if __name__ == '__main__':
     plt.title('only EKF y position')
     plt.legend()
     plt.subplot(3, 3, 5)
-    plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 1].cpu().numpy(), color='g', label='raw data y position', s=5)
+    plt.scatter(data[1:, -1].cpu().numpy() - data[0][-1].cpu().numpy(), data[1:, 1].cpu().numpy(), color='g',
+                label='raw data y position', s=5)
     plt.title('only raw data y position')
     plt.legend()
     plt.subplot(3, 3, 6)
     plt.scatter(time_EKF, resy.cpu().numpy(), color='b', label='EKF y position', s=5)
-    plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 1].cpu().numpy(), color='g', label='raw data y position', s=5)
+    plt.scatter(data[1:, -1].cpu().numpy() - data[0][-1].cpu().numpy(), data[1:, 1].cpu().numpy(), color='g',
+                label='raw data y position', s=5)
     plt.title('EKF vs raw data y position')
     plt.legend()
     plt.subplot(3, 3, 7)
@@ -203,12 +295,12 @@ if __name__ == '__main__':
     plt.title('only EKF theta')
     plt.legend()
     plt.subplot(3, 3, 8)
-    plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data theta', s=5)
+    plt.scatter(data[1:, -1].cpu().numpy() - data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g',
+                label='raw data theta', s=5)
     plt.legend()
     plt.subplot(3, 3, 9)
-    plt.scatter(time_EKF,  res_theta.cpu().numpy(), color='b', label='EKF theta', s=5)
-    plt.scatter(data[1:, -1].cpu().numpy()-data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g', label='raw data y position', s=5)
+    plt.scatter(time_EKF, res_theta.cpu().numpy(), color='b', label='EKF theta', s=5)
+    plt.scatter(data[1:, -1].cpu().numpy() - data[0][-1].cpu().numpy(), data[1:, 2].cpu().numpy(), color='g',
+                label='raw data y position', s=5)
     plt.legend()
     plt.show()
-
-

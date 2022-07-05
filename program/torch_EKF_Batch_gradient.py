@@ -1,6 +1,6 @@
 import torch
 import torch_air_hockey_baseline
-from torch_EKF_Wrapper import air_hockey_EKF
+from torch_EKF_Wrapper import AirHockeyEKF
 from matplotlib import pyplot as plt
 import numpy as np
 import torch.utils.data as Data

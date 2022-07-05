@@ -9,7 +9,7 @@ def cross2d(v1, v2):
 
 
 class AirHockeyTable:
-    def __init__(self, length, width, goalWidth, puckRadius, restitution, rimFriction, dt):
+    def __init__(self, length, width, goalWidth, puckRadius, restitution, rimFriction, dt, beta):
         self.m_length = length
         self.m_width = width
         self.m_puckRadius = puckRadius
@@ -17,6 +17,7 @@ class AirHockeyTable:
         self.m_e = restitution
         self.m_rimFriction = rimFriction
         self.m_dt = dt
+        self.beta = beta
 
         ref = torch.tensor([length / 2, 0.])
         offsetP1 = torch.tensor([-self.m_length / 2 + self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
@@ -79,10 +80,6 @@ class AirHockeyTable:
         vel = state[2:4]
         angle = state[4]
         ang_vel = state[5]
-        # pos = state[0:2].detach()
-        # vel = state[2:4].clone()
-        # angle = state[4].detach()
-        # ang_vel = state[5].clone()
 
         score = False
         if torch.abs(pos[1]) < self.m_goalWidth / 2 and pos[0] < self.m_boundary[0][0] + self.m_puckRadius:
@@ -106,8 +103,6 @@ class AirHockeyTable:
             if cross2d(w, v) < 0 or (s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
                 state_pre = pos + s * u
                 theta_pre = angle + s * ang_vel * self.m_dt
-                # vel.detach_()
-                # ang_vel.detach_()
 
                 vecT = v / torch.linalg.norm(v)
                 vecN = torch.zeros(2, device=device)
@@ -168,27 +163,23 @@ class AirHockeyTable:
                 '''
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
-                weight = torch.sigmoid(30 * weight)
-                slideDir = (vtScalar + ang_vel * self.m_puckRadius) / torch.abs(
-                    vtScalar + ang_vel * self.m_puckRadius)
-                # avoid slideDir = nan
-                if vtScalar + ang_vel * self.m_puckRadius == 0:
-                    slideDir = 0
+                weight = torch.sigmoid(self.beta * weight)
+                slideDir = torch.sign(vtScalar + ang_vel * self.m_puckRadius)
                 vtNextSCalar = weight * (2 * vtScalar / 3 - self.m_puckRadius * ang_vel / 3) + (1 - weight) * (
-                            vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar)
+                        vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar)
                 vnNextScalar = -self.m_e * vnSCalar
                 cur_state5 = weight * (ang_vel / 3 - 2 * vtScalar / (3 * self.m_puckRadius)) + (1 - weight) * (
-                            ang_vel + 2 * self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar / self.m_puckRadius)
+                        ang_vel + 2 * self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar / self.m_puckRadius)
                 self.m_jacCollision = torch.eye(6, device=device)
                 self.m_jacCollision[0][2] = self.m_dt
                 self.m_jacCollision[1][3] = self.m_dt
-                self.m_jacCollision[2][2] = weight*2/3
-                self.m_jacCollision[2][3] = (1 - weight)*(self.m_rimFriction * slideDir * (1 + self.m_e))
+                self.m_jacCollision[2][2] = weight * 2 / 3
+                self.m_jacCollision[2][3] = (1 - weight) * (self.m_rimFriction * slideDir * (1 + self.m_e))
                 self.m_jacCollision[2][5] = -self.m_puckRadius * weight / 3
                 self.m_jacCollision[3][3] = -self.m_e
                 self.m_jacCollision[4][5] = self.m_dt
-                self.m_jacCollision[5][2] = weight*(-2 / (3 * self.m_puckRadius))
-                self.m_jacCollision[5][3] = (1 - weight)*(self.m_jacCollision[2][3] * 2 / self.m_puckRadius)
+                self.m_jacCollision[5][2] = weight * (-2 / (3 * self.m_puckRadius))
+                self.m_jacCollision[5][3] = (1 - weight) * (self.m_jacCollision[2][3] * 2 / self.m_puckRadius)
                 self.m_jacCollision[5][5] = weight / 3
                 jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
                 if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
@@ -215,7 +206,7 @@ class AirHockeyTable:
 
 class SystemModel:
     def __init__(self, tableDamping, tableFriction, tableLength, tableWidth, goalWidth, puckRadius, malletRadius,
-                 tableRes, malletRes, rimFriction, dt):
+                 tableRes, malletRes, rimFriction, dt, beta):
         self.tableDamping = tableDamping
         self.tableFriction = tableFriction
         self.tableLength = tableLength
@@ -227,6 +218,10 @@ class SystemModel:
         self.malletRes = malletRes
         self.rimFriction = rimFriction
         self.dt = dt
+
+        self.table = AirHockeyTable(length=tableLength, width=tableWidth, goalWidth=goalWidth,
+                                    puckRadius=puckRadius, restitution=tableRes, rimFriction=rimFriction, dt=dt,
+                                    beta=beta)
 
     @property
     def F(self):
@@ -245,25 +240,19 @@ class SystemModel:
         ang_prev = x[4]
         ang_vel_prev = x[5]
 
-        # pos_prev = x[0:2].detach().clone()
-        # vel_prev = x[2:4].clone()
-        # ang_prev = x[4].detach().clone()
-        # ang_vel_prev = x[5].clone()
-
         pos = pos_prev + u * vel_prev
         angle = torch.fmod(ang_prev + u * ang_vel_prev, pi * 2)
         if angle > pi:
             angle = angle - pi * 2
         elif angle < -pi:
             angle = angle + pi * 2
-        # vel_prev.detach_()
-        # ang_vel_prev.detach_()
+
         if torch.linalg.norm(vel_prev) > 1e-6:
             vel = vel_prev - u * (self.tableDamping * vel_prev + self.tableFriction * vel_prev /
                                   torch.linalg.norm(vel_prev))
         else:
             vel = vel_prev - u * self.tableDamping * vel_prev
-        ang_vel = ang_vel_prev - ang_vel_prev * self.puckRadius**2 * self.tableDamping * u / 4
+        ang_vel = ang_vel_prev - ang_vel_prev * self.puckRadius ** 2 * self.tableDamping * u / 4
         return torch.cat([pos, vel, torch.atleast_1d(angle), torch.atleast_1d(ang_vel)])
 
     def update_jacobian(self, x, u):
@@ -276,8 +265,7 @@ class SystemModel:
         self.tableFriction = mu_
 
     def set_table_dynamics_param(self, tableRes, rimFriction):
-        self.tableRes = tableRes
-        self.rimFriction = rimFriction
+        self.table.set_dynamic_parameter(tableRes, rimFriction)
 
     #   self.collisionModel.setTableDynamicsParam(tableRes,rimFriction)
     def is_outside_boundary(self, measurement):
@@ -290,3 +278,6 @@ class SystemModel:
     #             state[0] > self.tableLength - self.puckRadius + 0.01:
     #         return True
     #     return False
+
+    def apply_collision(self, state):
+        return self.table.apply_collision(state)
