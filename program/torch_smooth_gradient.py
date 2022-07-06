@@ -206,7 +206,6 @@ if __name__ == '__main__':
         training_segment_dataset = model.prepare_dataset(training_dataset)
         training_index_list = range(len(training_segment_dataset))
         loader = Data.DataLoader(training_index_list, batch_size=batch_size, shuffle=True)
-
         batch_loss = []
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
@@ -218,8 +217,6 @@ if __name__ == '__main__':
             batch_loss.append(loss.detach().cpu().numpy())
             # for p in model.parameters():
             #     p.data.clamp_(0, 1)
-
-
         training_loss = np.mean(batch_loss)
         writer.add_scalar('loss/training_loss', training_loss, t)
 

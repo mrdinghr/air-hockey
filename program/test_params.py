@@ -8,6 +8,24 @@ from math import pi
 device = torch.device("cuda")
 
 
+def calculate_init_state(self, trajectory):
+    dx = ((trajectory[1][0] - trajectory[0][0]) / (trajectory[1][3] - trajectory[0][3]) + (
+            trajectory[2][0] - trajectory[1][0]) / (
+                  trajectory[2][3] - trajectory[1][3]) + (trajectory[3][0] - trajectory[2][0]) / (
+                  trajectory[3][3] - trajectory[2][3])) / 3
+    dy = ((trajectory[1][1] - trajectory[0][1]) / (trajectory[1][3] - trajectory[0][3]) + (
+            trajectory[2][1] - trajectory[1][1]) / (
+                  trajectory[2][3] - trajectory[1][3]) + (trajectory[3][1] - trajectory[2][1]) / (
+                  trajectory[3][3] - trajectory[2][3])) / 3
+    dtheta = ((trajectory[1][2] - trajectory[0][2]) / (trajectory[1][3] - trajectory[0][3]) + (
+            trajectory[2][2] - trajectory[1][2]) / (
+                      trajectory[2][3] - trajectory[1][3]) + (trajectory[3][2] - trajectory[2][2]) / (
+                      trajectory[3][3] - trajectory[2][3])) / 3
+    state_ = torch.tensor([trajectory[1][0], trajectory[1][1], dx, dy, trajectory[1][2], dtheta],
+                          device=self.device).float()
+    return state_
+
+
 # table friction, table damping, table restitution, rim friction
 def plot_trajectory(index, params):
     data_set = np.load('new_total_data_after_clean.npy', allow_pickle=True)
@@ -92,5 +110,11 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 5], label='Smooth trajectory', c='r')
     plt.legend()
     plt.show()
+
+
+if __name__ == '__main__':
+    init_params = torch.tensor([])
+    index = 5
+    plot_trajectory(index, init_params)
 
 
