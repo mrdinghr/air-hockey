@@ -13,146 +13,12 @@ from test_params import plot_trajectory
 from tqdm import tqdm
 
 
-# input: recorded trajectories
-# output:init_state of this trajectory
+# def convert(params, middle_value):
+#     return torch.sigmoid(params)*middle_value
+#
+# def inv_conver(params, middlevalue):
 
 
-# dyna_params: table friction, table damping, table restitution, rim friction
-# input: trajectory, dyna_parameters, covariance_parameters, batch size actually is batch trajectory size
-# output: state of one trajectory calculated by kalman smooth. list of tensor
-def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_size, if_loss, beta):
-    list_total_state_batch_start_point = []
-    evaluation = 0
-    num_evaluation = 0
-    dyna_params = torch.zeros(4, device=device)
-    dyna_params[0:2] = (torch.tanh(in_dyna_params[0:2].clone().detach()) + 1) * 0.1
-    dyna_params[2:] = (torch.tanh(in_dyna_params[2:].clone().detach()) + 1)
-    # dyna_params = in_dyna_params
-    for trajectory_index in range(len(trajectory)):
-        cur_trajectory = trajectory[trajectory_index]
-        cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
-        R = torch.zeros((3, 3), device=device)
-        R[0][0] = torch.sigmoid(covariance_params[0]).clone().detach()
-        R[1][1] = torch.sigmoid(covariance_params[1]).clone().detach()
-        R[2][2] = torch.sigmoid(covariance_params[2]).clone().detach()
-        Q = torch.zeros((6, 6), device=device)
-        Q[0][0] = torch.sigmoid(covariance_params[3]).clone().detach()
-        Q[1][1] = torch.sigmoid(covariance_params[3]).clone().detach()
-        Q[2][2] = torch.sigmoid(covariance_params[4]).clone().detach()
-        Q[3][3] = torch.sigmoid(covariance_params[4]).clone().detach()
-        Q[4][4] = torch.sigmoid(covariance_params[5]).clone().detach()
-        Q[5][5] = torch.sigmoid(covariance_params[6]).clone().detach()
-        P = torch.eye(6, device=device) * 0.01
-        system = torch_air_hockey_baseline.SystemModel(tableDamping=dyna_params[1], tableFriction=dyna_params[0],
-                                                       tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
-                                                       puckRadius=0.03165, malletRadius=0.04815,
-                                                       tableRes=dyna_params[3],
-                                                       malletRes=0.8, rimFriction=dyna_params[2], dt=1 / 120)
-        table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
-                                                         puckRadius=0.03165, restitution=dyna_params[2],
-                                                         rimFriction=dyna_params[3], dt=1 / 120, beta=beta)
-        init_state = calculate_init_state(cur_trajectory)
-        u = 1 / 120
-        puck_EKF = AirHockeyEKF(u, system, table, Q, R, P)
-        puck_EKF.initialize(init_state)
-        EKF_res_state = [init_state]
-        EKF_resx = [init_state[0]]
-        EKF_resy = [init_state[1]]
-        EKF_res_P = []
-        EKF_res_dynamic = []
-        EKF_res_collision = []
-        EKF_res_update = []
-        i = 0
-        j = 1
-        length = len(cur_trajectory)
-        time_EKF = [0]
-        while j < length - 1:
-            i += 1
-            time_EKF.append(i / 120)
-            puck_EKF.predict()
-            EKF_res_state.append(puck_EKF.predict_state)
-            EKF_res_P.append(puck_EKF.P)
-            EKF_res_dynamic.append(puck_EKF.F)
-            EKF_res_collision.append(puck_EKF.has_collision)
-            EKF_resx.append(puck_EKF.predict_state[0])
-            EKF_resy.append(puck_EKF.predict_state[1])
-            if (i - 0.1) / 120 < cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] < (i + 0.1) / 120:
-                puck_EKF.update(cur_trajectory[j + 1][0:3])
-                j += 1
-                EKF_res_update.append(True)
-            elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.1) / 120:
-                j = j + 1
-                puck_EKF.state = puck_EKF.predict_state
-                EKF_res_update.append(0.5)
-            else:
-                puck_EKF.state = puck_EKF.predict_state
-                EKF_res_update.append(False)
-        EKF_resx = torch.tensor(EKF_resx)
-        EKF_resy = torch.tensor(EKF_resy)
-        smooth_res_state = [EKF_res_state[-1]]
-        smooth_resx = [EKF_resx[-1]]
-        smooth_resy = [EKF_resy[-1]]
-        xs = EKF_res_state[-1]
-        ps = EKF_res_P[-1]
-        time = len(EKF_res_state)
-        i = 0
-        for j in range(time - 2):
-            if EKF_res_update[-1 - j]:
-                i += 1
-                innovation = cur_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
-                if xs[4] * cur_trajectory[-i, 2] < 0:
-                    innovation[2] = 2 * pi + torch.sign(xs[4]) * (cur_trajectory[-i, 2] - xs[4])
-                innovation_covariance = puck_EKF.H @ ps @ puck_EKF.H.T + puck_EKF.R
-                sign, logdet = torch.linalg.slogdet(innovation_covariance)
-                num_evaluation += 1
-                evaluation = evaluation + (sign * torch.exp(logdet) + innovation @ torch.linalg.inv(
-                    innovation_covariance) @ innovation)
-                # evaluation = evaluation + innovation@innovation
-            xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
-            if not EKF_res_collision[-j - 1]:
-                if torch.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-                              EKF_res_state[-j - 2][3]) > 1e-6:
-                    xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
-                            system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[
-                                                                                                          -j - 2][
-                                                                                                      2:4] / torch.sqrt(
-                        EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
-                        EKF_res_state[-j - 2][3]))
-                else:
-                    xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
-            pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
-            c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
-            if abs(xs[4] - xp[4]) > pi:
-                xp[4] = xp[4] - torch.sign(xp[4]) * 2 * pi
-            if xs[5] * xp[5] < 0:
-                xs[5] = -xs[5]
-            xs = EKF_res_state[-j - 2] + c @ (xs - xp)
-            ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
-            if EKF_res_update[-j - 2] or EKF_res_update[-j - 2] == 0.5:
-                smooth_res_state.append(xs)
-                smooth_resx.append(xs[0].cpu().numpy())
-                smooth_resy.append(xs[1].cpu().numpy())
-        for j in range(len(smooth_res_state)):
-            if True in EKF_res_collision[j: j + batch_size]:
-                if j % (batch_size / batch_size) == 0:
-                    cur_state = smooth_res_state[-j - 1]
-                    index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
-                    list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
-            else:
-                if j % (batch_size / 2) == 0:
-                    cur_state = smooth_res_state[-j - 1]
-                    index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
-                    list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
-    # smooth_resx = torch.tensor(smooth_resx, device=device)
-    # smooth_resy = torch.tensor(smooth_resy, device=device)
-    plot_with_state_list(EKF_res_state, smooth_res_state, cur_trajectory, time_EKF)
-    if if_loss:
-        return evaluation / num_evaluation
-    return list_total_state_batch_start_point, evaluation / num_evaluation
-
-
-def convert(params, middle_value):
-    return torch.sigmoid(params)*middle_value
 '''
 # table friction, table damping, table restitution, rim friction
 # init_params = torch.Tensor([0.4*0.2159, 0.4*0.2513, 0.7936, 0.4352])
@@ -184,15 +50,13 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         self.beta = beta
 
     def construct_EKF(self):
-        # self.dyna_params = (torch.tanh(self.params) + 1) * 0.5
-        self.dyna_params = torch.cat([(torch.tanh(self.params[0:2]) + 1) * 0.01, (torch.tanh(self.params[2:]) + 1)])
-        self.R = torch.diag(
-            torch.sigmoid(torch.stack([self.covariance_params[0], self.covariance_params[1], self.covariance_params[2]])))
-        self.R = self.R.to(device=self.device)
-        self.Q = torch.diag(torch.sigmoid(torch.stack(
-            [self.covariance_params[3], self.covariance_params[3], self.covariance_params[4], self.covariance_params[4],
-             self.covariance_params[5], self.covariance_params[6]])))
-        self.Q = self.Q.to(device=self.device)
+        self.dyna_params = torch.abs(self.params)
+        self.R = torch.diag(torch.exp(torch.stack([self.covariance_params[0],
+                                                   self.covariance_params[1],
+                                                   self.covariance_params[2]])))
+        self.Q = torch.diag(torch.exp(torch.stack([self.covariance_params[3], self.covariance_params[3],
+                                                   self.covariance_params[4], self.covariance_params[4],
+                                                   self.covariance_params[5], self.covariance_params[6]])))
         self.P = torch.eye(6, device=device) * 0.01
         self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1],
                                                             tableFriction=self.dyna_params[0],
@@ -251,6 +115,7 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
     def compute_loss(self, smoothed_segments_batch, measurements, loss_type='log_lik'):
         self.construct_EKF()
         total_loss = 0
+        num_total_loss = 0
         for point in smoothed_segments_batch:
             trajectory_idx = int(point[0])
             trajectory_point_idx = int(point[1])
@@ -278,8 +143,9 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
                                                             innovation))
             elif loss_type == 'mse':
                 total_loss = total_loss + torch.bmm(innovation.unsqueeze(1), innovation.unsqueeze(2)).sum()
+            num_total_loss += 1
 
-        return total_loss
+        return total_loss / num_total_loss
 
 
 def load_dataset(file_name):
@@ -298,32 +164,44 @@ if __name__ == '__main__':
     training_dataset, test_dataset = load_dataset(file_name)
 
     # table friction, table damping, table restitution, rim friction
-    init_params = torch.Tensor([0.1, 0.15, 0.8, 0.10])
-    init_params = init_params / torch.tensor([0.1, 0.1, 1, 1]) - 1
-    init_params = 0.5 * (torch.log(1 + init_params) - torch.log(1 - init_params))
+    init_params = torch.Tensor([0.10033657, 0.15026346, 0.79968596, 0.10029725]).to(device=device)
+    # init_params = init_params / torch.tensor([0.1, 0.1, 1, 1]) - 1
+    # init_params = 0.5 * (torch.log(1 + init_params) - torch.log(1 - init_params))
 
     # covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
-    covariance_params = torch.Tensor([1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3])
-    covariance_params = torch.log(covariance_params / (1-covariance_params))
+    covariance_params = torch.Tensor([0.00118112, 0.00100000, 0.00295336, 0.00392161, 0.00100000, 0.00100000, 0.00205159]).to(device=device)
+    covariance_params = torch.log(covariance_params)
+    # covariance_params = torch.log(covariance_params / (1-covariance_params))
     model = Kalman_Smooth_Gradient(init_params, covariance_params, segment_size=batch_trajectory_size, device=device,
                                    beta=beta)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     epoch = 0
-    writer = SummaryWriter('./smoothcov74')
+    writer = SummaryWriter('./smoothcov76night')
     for t in tqdm(range(epochs)):
-        writer.add_scalar('table damping', 0.1 * (torch.tanh(model.params[1]) + 1), t)
-        writer.add_scalar('table friction', 0.1 * (torch.tanh(model.params[0]) + 1), t)
-        writer.add_scalar('table restitution', (torch.tanh(model.params[2]) + 1), t)
-        writer.add_scalar('rim friction', (torch.tanh(model.params[3]) + 1), t)
-        writer.add_scalar('R0', torch.sigmoid(model.covariance_params[0]), t)
-        writer.add_scalar('R1', torch.sigmoid(model.covariance_params[1]), t)
-        writer.add_scalar('R2', torch.sigmoid(model.covariance_params[2]), t)
-        writer.add_scalar('Q01', torch.sigmoid(model.covariance_params[3]), t)
-        writer.add_scalar('Q23', torch.sigmoid(model.covariance_params[4]), t)
-        writer.add_scalar('Q4', torch.sigmoid(model.covariance_params[5]), t)
-        writer.add_scalar('Q5', torch.sigmoid(model.covariance_params[6]), t)
+        # writer.add_scalar('table damping', 0.1 * (torch.tanh(model.params[1]) + 1), t)
+        # writer.add_scalar('table friction', 0.1 * (torch.tanh(model.params[0]) + 1), t)
+        # writer.add_scalar('table restitution', (torch.tanh(model.params[2]) + 1), t)
+        # writer.add_scalar('rim friction', (torch.tanh(model.params[3]) + 1), t)
+        # writer.add_scalar('R0', torch.sigmoid(model.covariance_params[0]), t)
+        # writer.add_scalar('R1', torch.sigmoid(model.covariance_params[1]), t)
+        # writer.add_scalar('R2', torch.sigmoid(model.covariance_params[2]), t)
+        # writer.add_scalar('Q01', torch.sigmoid(model.covariance_params[3]), t)
+        # writer.add_scalar('Q23', torch.sigmoid(model.covariance_params[4]), t)
+        # writer.add_scalar('Q4', torch.sigmoid(model.covariance_params[5]), t)
+        # writer.add_scalar('Q5', torch.sigmoid(model.covariance_params[6]), t)
+        writer.add_scalar('dynamics/table damping', model.params[1], t)
+        writer.add_scalar('dynamics/table friction', model.params[0], t)
+        writer.add_scalar('dynamics/table restitution', model.params[2], t)
+        writer.add_scalar('dynamics/rim friction', model.params[3], t)
+        writer.add_scalar('covariance/R0', model.covariance_params[0], t)
+        writer.add_scalar('covariance/R1', model.covariance_params[1], t)
+        writer.add_scalar('covariance/R2', model.covariance_params[2], t)
+        writer.add_scalar('covariance/Q01', model.covariance_params[3], t)
+        writer.add_scalar('covariance/Q23', model.covariance_params[4], t)
+        writer.add_scalar('covariance/Q4', model.covariance_params[5], t)
+        writer.add_scalar('covariance/Q5', model.covariance_params[6], t)
 
         training_segment_dataset = model.prepare_dataset(training_dataset)
         training_index_list = range(len(training_segment_dataset))
@@ -334,12 +212,16 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             loss = model.compute_loss(training_segment_dataset[index_batch], training_dataset)
             loss.backward()
-            print(model.params.grad)
+            print("loss:", loss.item())
+            print("dynamics: ", model.params.detach().cpu().numpy())
             optimizer.step()
             batch_loss.append(loss.detach().cpu().numpy())
+            # for p in model.parameters():
+            #     p.data.clamp_(0, 1)
+
 
         training_loss = np.mean(batch_loss)
-        writer.add_scalar('training_loss', training_loss, t)
+        writer.add_scalar('loss/training_loss', training_loss, t)
 
         test_segment_dataset = model.prepare_dataset(test_dataset)
         test_index_list = range(len(test_segment_dataset))
@@ -351,17 +233,17 @@ if __name__ == '__main__':
                 loss = model.compute_loss(test_segment_dataset[index_batch], test_dataset)
                 test_batch_loss.append(loss.detach().cpu().numpy())
             test_loss = np.mean(test_batch_loss)
-            writer.add_scalar('test_loss', test_loss, t)
+            writer.add_scalar('loss/test_loss', test_loss, t)
 
-    writer.add_scalar('table damping', 0.1 * (torch.tanh(model.params[1]) + 1), t + 1)
-    writer.add_scalar('table friction', 0.1 * (torch.tanh(model.params[0]) + 1), t + 1)
-    writer.add_scalar('table restitution', (torch.tanh(model.params[2]) + 1), t + 1)
-    writer.add_scalar('rim friction', (torch.tanh(model.params[3]) + 1), t + 1)
-    writer.add_scalar('R0', torch.sigmoid(model.covariance_params[0]), t)
-    writer.add_scalar('R1', torch.sigmoid(model.covariance_params[1]), t)
-    writer.add_scalar('R2', torch.sigmoid(model.covariance_params[2]), t)
-    writer.add_scalar('Q01', torch.sigmoid(model.covariance_params[3]), t)
-    writer.add_scalar('Q23', torch.sigmoid(model.covariance_params[4]), t)
-    writer.add_scalar('Q4', torch.sigmoid(model.covariance_params[5]), t)
-    writer.add_scalar('Q5', torch.sigmoid(model.covariance_params[6]), t)
+    # writer.add_scalar('table damping', 0.1 * (torch.tanh(model.params[1]) + 1), t + 1)
+    # writer.add_scalar('table friction', 0.1 * (torch.tanh(model.params[0]) + 1), t + 1)
+    # writer.add_scalar('table restitution', (torch.tanh(model.params[2]) + 1), t + 1)
+    # writer.add_scalar('rim friction', (torch.tanh(model.params[3]) + 1), t + 1)
+    # writer.add_scalar('R0', torch.sigmoid(model.covariance_params[0]), t)
+    # writer.add_scalar('R1', torch.sigmoid(model.covariance_params[1]), t)
+    # writer.add_scalar('R2', torch.sigmoid(model.covariance_params[2]), t)
+    # writer.add_scalar('Q01', torch.sigmoid(model.covariance_params[3]), t)
+    # writer.add_scalar('Q23', torch.sigmoid(model.covariance_params[4]), t)
+    # writer.add_scalar('Q4', torch.sigmoid(model.covariance_params[5]), t)
+    # writer.add_scalar('Q5', torch.sigmoid(model.covariance_params[6]), t)
     writer.close()

@@ -3,6 +3,7 @@ import torch
 import torch_air_hockey_baseline_no_detach
 from matplotlib import pyplot as plt
 import numpy as np
+from test_params import plot_with_state_list
 
 
 class AirHockeyEKF:
@@ -81,6 +82,8 @@ class AirHockeyEKF:
                                                                                                   trajectory)
         smoothed_state_list, smoothed_variance_list = self.backward_pass(state_list, variance_list, jacobian_list,
                                                                          update_list)
+        # time_list = [i/120 for i in range(len(state_list))]
+        # plot_with_state_list(state_list, smoothed_state_list, trajectory, time_list)
         smoothed_state_list = smoothed_state_list[::-1]
         smoothed_variance_list = smoothed_variance_list[::-1]
         collision_list = collision_list[::-1]
@@ -105,12 +108,13 @@ class AirHockeyEKF:
             EKF_res_P.append(self.P)
             EKF_res_dynamic.append(self.F)
             EKF_res_collision.append(self.has_collision)
-            if (i - 0.1) / 120 < trajectory[j + 1][-1] - trajectory[1][-1] < (i + 0.1) / 120:
+            if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[1][-1] <= (i + 0.5) / 120:
                 self.update(trajectory[j + 1][0:3])
                 j += 1
                 EKF_res_update.append(1)
-            elif trajectory[j + 1][-1] - trajectory[1][-1] <= (i - 0.1) / 120:
+            elif trajectory[j + 1][-1] - trajectory[1][-1] < (i - 0.5) / 120:
                 j = j + 1
+                i = i - 1
                 self.state = self.predict_state
                 EKF_res_update.append(2)
             else:
@@ -135,7 +139,7 @@ class AirHockeyEKF:
             if not has_collision:
                 xp = self.system.f(state_list[idx_prev], self.u)
             else:
-                xp = state_list[idx_prev]
+                xp = predict_state
 
             # xp = jacobian_list[idx_cur] @ state_list[idx_prev]
             # if not collision_list[idx_cur]:

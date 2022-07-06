@@ -3,7 +3,7 @@ import torch
 from matplotlib import pyplot as plt
 from air_hockey_plot import test_params_trajectory_plot
 import air_hockey_baseline
-from torch_EKF_Batch_gradient import calculate_init_state
+# from torch_EKF_Batch_gradient import calculate_init_state
 from math import pi
 device = torch.device("cuda")
 
@@ -32,8 +32,8 @@ def plot_trajectory(index, params):
 # output: draw the trajectory and position, velocity
 # color: r smooth b EKF g data
 def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_list):
-    EKF_state_list = torch.tensor([item.cpu().numpy() for item in EKF_state_list], device=device).cpu().numpy()
-    smooth_state_list = torch.tensor([item.cpu().numpy() for item in smooth_state_list], device=device).cpu().numpy()
+    EKF_state_list = torch.tensor([item.clone().cpu().numpy() for item in EKF_state_list], device=device).cpu().numpy()
+    smooth_state_list = torch.tensor([item.clone().cpu().numpy() for item in smooth_state_list], device=device).cpu().numpy()
     trajectory = trajectory.cpu().numpy()
     x_velocity = []
     y_velocity = []

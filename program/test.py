@@ -8,7 +8,147 @@ import torch
 import torch.utils.data as Data
 from torch.utils.data import Dataset
 
+# data = np.load('new_total_data_after_clean.npy', allow_pickle=True)
+# for trajectory in data:
+#     plt.figure()
+#     plt.scatter(trajectory[:, 3], trajectory[:, 0], c='b')
+# plt.show()
 
+'''
+# some no used code
+# dyna_params: table friction, table damping, table restitution, rim friction
+# input: trajectory, dyna_parameters, covariance_parameters, batch size actually is batch trajectory size
+# output: state of one trajectory calculated by kalman smooth. list of tensor
+def state_kalman_smooth(trajectory, in_dyna_params, covariance_params, batch_size, if_loss, beta):
+    list_total_state_batch_start_point = []
+    evaluation = 0
+    num_evaluation = 0
+    dyna_params = torch.zeros(4, device=device)
+    dyna_params[0:2] = (torch.tanh(in_dyna_params[0:2].clone().detach()) + 1) * 0.1
+    dyna_params[2:] = (torch.tanh(in_dyna_params[2:].clone().detach()) + 1)
+    # dyna_params = in_dyna_params
+    for trajectory_index in range(len(trajectory)):
+        cur_trajectory = trajectory[trajectory_index]
+        cur_trajectory = torch.tensor(cur_trajectory, device=device).float()
+        R = torch.zeros((3, 3), device=device)
+        R[0][0] = torch.sigmoid(covariance_params[0]).clone().detach()
+        R[1][1] = torch.sigmoid(covariance_params[1]).clone().detach()
+        R[2][2] = torch.sigmoid(covariance_params[2]).clone().detach()
+        Q = torch.zeros((6, 6), device=device)
+        Q[0][0] = torch.sigmoid(covariance_params[3]).clone().detach()
+        Q[1][1] = torch.sigmoid(covariance_params[3]).clone().detach()
+        Q[2][2] = torch.sigmoid(covariance_params[4]).clone().detach()
+        Q[3][3] = torch.sigmoid(covariance_params[4]).clone().detach()
+        Q[4][4] = torch.sigmoid(covariance_params[5]).clone().detach()
+        Q[5][5] = torch.sigmoid(covariance_params[6]).clone().detach()
+        P = torch.eye(6, device=device) * 0.01
+        system = torch_air_hockey_baseline.SystemModel(tableDamping=dyna_params[1], tableFriction=dyna_params[0],
+                                                       tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
+                                                       puckRadius=0.03165, malletRadius=0.04815,
+                                                       tableRes=dyna_params[3],
+                                                       malletRes=0.8, rimFriction=dyna_params[2], dt=1 / 120)
+        table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25,
+                                                         puckRadius=0.03165, restitution=dyna_params[2],
+                                                         rimFriction=dyna_params[3], dt=1 / 120, beta=beta)
+        init_state = calculate_init_state(cur_trajectory)
+        u = 1 / 120
+        puck_EKF = AirHockeyEKF(u, system, table, Q, R, P)
+        puck_EKF.initialize(init_state)
+        EKF_res_state = [init_state]
+        EKF_resx = [init_state[0]]
+        EKF_resy = [init_state[1]]
+        EKF_res_P = []
+        EKF_res_dynamic = []
+        EKF_res_collision = []
+        EKF_res_update = []
+        i = 0
+        j = 1
+        length = len(cur_trajectory)
+        time_EKF = [0]
+        while j < length - 1:
+            i += 1
+            time_EKF.append(i / 120)
+            puck_EKF.predict()
+            EKF_res_state.append(puck_EKF.predict_state)
+            EKF_res_P.append(puck_EKF.P)
+            EKF_res_dynamic.append(puck_EKF.F)
+            EKF_res_collision.append(puck_EKF.has_collision)
+            EKF_resx.append(puck_EKF.predict_state[0])
+            EKF_resy.append(puck_EKF.predict_state[1])
+            if (i - 0.1) / 120 < cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] < (i + 0.1) / 120:
+                puck_EKF.update(cur_trajectory[j + 1][0:3])
+                j += 1
+                EKF_res_update.append(True)
+            elif cur_trajectory[j + 1][-1] - cur_trajectory[1][-1] <= (i - 0.1) / 120:
+                j = j + 1
+                puck_EKF.state = puck_EKF.predict_state
+                EKF_res_update.append(0.5)
+            else:
+                puck_EKF.state = puck_EKF.predict_state
+                EKF_res_update.append(False)
+        EKF_resx = torch.tensor(EKF_resx)
+        EKF_resy = torch.tensor(EKF_resy)
+        smooth_res_state = [EKF_res_state[-1]]
+        smooth_resx = [EKF_resx[-1]]
+        smooth_resy = [EKF_resy[-1]]
+        xs = EKF_res_state[-1]
+        ps = EKF_res_P[-1]
+        time = len(EKF_res_state)
+        i = 0
+        for j in range(time - 2):
+            if EKF_res_update[-1 - j]:
+                i += 1
+                innovation = cur_trajectory[-i, 0:3] - torch.tensor([xs[0], xs[1], xs[4]], device=device)
+                if xs[4] * cur_trajectory[-i, 2] < 0:
+                    innovation[2] = 2 * pi + torch.sign(xs[4]) * (cur_trajectory[-i, 2] - xs[4])
+                innovation_covariance = puck_EKF.H @ ps @ puck_EKF.H.T + puck_EKF.R
+                sign, logdet = torch.linalg.slogdet(innovation_covariance)
+                num_evaluation += 1
+                evaluation = evaluation + (sign * torch.exp(logdet) + innovation @ torch.linalg.inv(
+                    innovation_covariance) @ innovation)
+                # evaluation = evaluation + innovation@innovation
+            xp = EKF_res_dynamic[-j - 1] @ EKF_res_state[-j - 2]
+            if not EKF_res_collision[-j - 1]:
+                if torch.sqrt(EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                              EKF_res_state[-j - 2][3]) > 1e-6:
+                    xp[2:4] = EKF_res_state[-j - 2][2:4] - u * (
+                            system.tableDamping * EKF_res_state[-j - 2][2:4] + system.tableFriction * EKF_res_state[
+                                                                                                          -j - 2][
+                                                                                                      2:4] / torch.sqrt(
+                        EKF_res_state[-j - 2][2] * EKF_res_state[-j - 2][2] + EKF_res_state[-j - 2][3] *
+                        EKF_res_state[-j - 2][3]))
+                else:
+                    xp[2:4] = EKF_res_state[-j - 2][2:4] - u * system.tableDamping * EKF_res_state[-j - 2][2:4]
+            pp = EKF_res_dynamic[-j - 1] @ EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T + Q
+            c = EKF_res_P[-j - 2] @ EKF_res_dynamic[-j - 1].T @ torch.linalg.inv(pp)
+            if abs(xs[4] - xp[4]) > pi:
+                xp[4] = xp[4] - torch.sign(xp[4]) * 2 * pi
+            if xs[5] * xp[5] < 0:
+                xs[5] = -xs[5]
+            xs = EKF_res_state[-j - 2] + c @ (xs - xp)
+            ps = EKF_res_P[-j - 2] + c @ (ps - pp) @ c.T
+            if EKF_res_update[-j - 2] or EKF_res_update[-j - 2] == 0.5:
+                smooth_res_state.append(xs)
+                smooth_resx.append(xs[0].cpu().numpy())
+                smooth_resy.append(xs[1].cpu().numpy())
+        for j in range(len(smooth_res_state)):
+            if True in EKF_res_collision[j: j + batch_size]:
+                if j % (batch_size / batch_size) == 0:
+                    cur_state = smooth_res_state[-j - 1]
+                    index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
+                    list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
+            else:
+                if j % (batch_size / 2) == 0:
+                    cur_state = smooth_res_state[-j - 1]
+                    index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
+                    list_total_state_batch_start_point.append(torch.cat((index_tensor, cur_state)))
+    # smooth_resx = torch.tensor(smooth_resx, device=device)
+    # smooth_resy = torch.tensor(smooth_resy, device=device)
+    plot_with_state_list(EKF_res_state, smooth_res_state, cur_trajectory, time_EKF)
+    if if_loss:
+        return evaluation / num_evaluation
+    return list_total_state_batch_start_point, evaluation / num_evaluation
+'''
 
 # data = np.load('new_total_data_after_clean.npy', allow_pickle=True)
 # for i in range(len(data)):
@@ -199,15 +339,19 @@ def state_kalman_smooth(cur_trajectory, dyna_params, covariance_params):
 #         print(model.get_parameter('k').grad)
 #         opt.step()
 
-'''
+
 #  clean all trajectory data: throw no move part
 table_length = 1.948
 result = np.load('new_total_data.npy', allow_pickle=True)
 result_clean = [[] for i in range(len(result))]
 for i in range(len(result)):
+
     for j in range(1, len(result[i])):
         if abs(result[i][j][0] - result[i][j - 1][0]) < 0.005 and abs(result[i][j][1] - result[i][j - 1][1]) < 0.005:
             continue
+        if result_clean[i] != []:
+            if result[i][j][3] - result_clean[i][-1][3] > 5 / 120:
+                break
         result_clean[i].append(result[i][j])
 result_clean = np.array(result_clean)
 for i in range(len(result_clean)):
@@ -215,8 +359,12 @@ for i in range(len(result_clean)):
         i_data[0] += table_length / 2
 for i in range(len(result_clean)):
     result_clean[i] = np.array(result_clean[i])
+for i in range(len(result_clean)):
+    plt.figure()
+    plt.scatter(result_clean[i][:, 3], result_clean[i][:, 0], c='b')
+plt.show()
 np.save('new_total_data_after_clean', result_clean)
-'''
+
 
 # a = result[0]
 # plt.plot(result[20][:, 0], result[20][:, 1])
