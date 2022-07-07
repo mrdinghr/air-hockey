@@ -32,3 +32,29 @@ for cur_file_name in file_name:
     result.append(measurement)
 np.save('new_total_data', result)
 
+'''
+#  clean all trajectory data: throw no move part
+table_length = 1.948
+result = np.load('new_total_data.npy', allow_pickle=True)
+result_clean = [[] for i in range(len(result))]
+for i in range(len(result)):
+
+    for j in range(1, len(result[i])):
+        if abs(result[i][j][0] - result[i][j - 1][0]) < 0.005 and abs(result[i][j][1] - result[i][j - 1][1]) < 0.005:
+            continue
+        if result_clean[i] != []:
+            if result[i][j][3] - result_clean[i][-1][3] > 5 / 120:
+                break
+        result_clean[i].append(result[i][j])
+result_clean = np.array(result_clean)
+for i in range(len(result_clean)):
+    for i_data in result_clean[i]:
+        i_data[0] += table_length / 2
+for i in range(len(result_clean)):
+    result_clean[i] = np.array(result_clean[i])
+for i in range(len(result_clean)):
+    plt.figure()
+    plt.scatter(result_clean[i][:, 3], result_clean[i][:, 0], c='b')
+plt.show()
+np.save('new_total_data_after_clean', result_clean)
+'''
