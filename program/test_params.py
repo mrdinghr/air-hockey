@@ -8,7 +8,7 @@ from math import pi
 device = torch.device("cuda")
 
 
-def calculate_init_state(self, trajectory):
+def calculate_init_state(trajectory):
     dx = ((trajectory[1][0] - trajectory[0][0]) / (trajectory[1][3] - trajectory[0][3]) + (
             trajectory[2][0] - trajectory[1][0]) / (
                   trajectory[2][3] - trajectory[1][3]) + (trajectory[3][0] - trajectory[2][0]) / (
@@ -22,7 +22,7 @@ def calculate_init_state(self, trajectory):
                       trajectory[2][3] - trajectory[1][3]) + (trajectory[3][2] - trajectory[2][2]) / (
                       trajectory[3][3] - trajectory[2][3])) / 3
     state_ = torch.tensor([trajectory[1][0], trajectory[1][1], dx, dy, trajectory[1][2], dtheta],
-                          device=self.device).float()
+                          device=device).float()
     return state_
 
 
@@ -49,7 +49,7 @@ def plot_trajectory(index, params):
 # input: state_list:calculated by EKF and kalman smooth, correspond trajectory
 # output: draw the trajectory and position, velocity
 # color: r smooth b EKF g data
-def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_list):
+def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_list, writer=None, epoch=0, trajectory_index = None):
     EKF_state_list = torch.tensor([item.clone().cpu().numpy() for item in EKF_state_list], device=device).cpu().numpy()
     smooth_state_list = torch.tensor([item.clone().cpu().numpy() for item in smooth_state_list], device=device).cpu().numpy()
     trajectory = trajectory.cpu().numpy()
@@ -69,6 +69,8 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.scatter(EKF_state_list[:, 0], EKF_state_list[:, 1], c='b', label='EKF trajectory', alpha=0.5)
     plt.scatter(smooth_state_list[:, 0], smooth_state_list[:, 1], c='r', label='Smooth trajectory')
     plt.legend()
+    if writer!= None:
+        writer.add_figure('trajectory'+str(trajectory_index), plt.gcf(), epoch)
     # position x
     plt.figure()
     plt.subplot(3, 1, 1)
@@ -90,6 +92,8 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.scatter(trajectory[:, 3] - trajectory[0, 3], trajectory[:, 2], label='recorded trajectory', c='g')
     plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 4], label='Smooth trajectory', c='r')
     plt.legend()
+    if writer != None:
+        writer.add_figure('trajectory '+str(trajectory_index)+' position compare', plt.gcf(), epoch)
     plt.figure()
     plt.subplot(3, 1, 1)
     plt.title('x velocity')
@@ -109,7 +113,9 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.scatter(trajectory[:-1, 3] - trajectory[0, 3], theta_velocity, label='recorded trajectory', c='g')
     plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 5], label='Smooth trajectory', c='r')
     plt.legend()
-    plt.show()
+    if writer != None:
+        writer.add_figure('trajectory '+str(trajectory_index)+' velocity compare', plt.gcf(), epoch)
+    # plt.show()
 
 
 if __name__ == '__main__':

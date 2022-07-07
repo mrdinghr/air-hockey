@@ -77,13 +77,15 @@ class AirHockeyEKF:
         self.H[0][0] = self.H[1][1] = self.H[2][4] = 1
         self.state = None
 
-    def smooth(self, init_state, trajectory):
+    def smooth(self, init_state, trajectory, plot=False, writer=None, epoch=0, trajectory_index=None):
         state_list, variance_list, jacobian_list, collision_list, update_list = self.forward_pass(init_state,
                                                                                                   trajectory)
         smoothed_state_list, smoothed_variance_list = self.backward_pass(state_list, variance_list, jacobian_list,
                                                                          update_list)
-        # time_list = [i/120 for i in range(len(state_list))]
-        # plot_with_state_list(state_list, smoothed_state_list, trajectory, time_list)
+        if plot:
+            time_list = [i / 120 for i in range(len(state_list))]
+            plot_with_state_list(state_list, smoothed_state_list, trajectory, time_list, writer=writer, epoch=epoch,
+                                 trajectory_index=trajectory_index)
         smoothed_state_list = smoothed_state_list[::-1]
         smoothed_variance_list = smoothed_variance_list[::-1]
         collision_list = collision_list[::-1]
