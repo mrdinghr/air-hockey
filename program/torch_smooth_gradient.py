@@ -1,3 +1,4 @@
+import datetime
 import numpy as np
 import torch.utils.data as Data
 from torch.utils.data import Dataset
@@ -35,8 +36,8 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
     def __init__(self, params, covariance_params, beta, segment_size, device):
         super(Kalman_Smooth_Gradient, self).__init__()
         self.register_parameter('params', torch.nn.Parameter(params))
-        self.register_parameter('covariance_params', torch.nn.Parameter(covariance_params))
-        # self.covariance_params = covariance_params
+        # self.register_parameter('covariance_params', torch.nn.Parameter(covariance_params))
+        self.covariance_params = covariance_params
         self.segment_size = segment_size
         self.device = device
         self.dyna_params = None
@@ -64,8 +65,8 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         #                                            self.covariance_params[1],
         #                                            self.covariance_params[2]])))
         self.P = torch.eye(6, device=device) * 0.01
-        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1],
-                                                            tableFriction=self.dyna_params[0],
+        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1].detach().clone(),
+                                                            tableFriction=self.dyna_params[0].detach().clone(),
                                                             tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
                                                             puckRadius=0.03165, malletRadius=0.04815,
                                                             tableRes=self.dyna_params[2],
@@ -147,9 +148,12 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
             innovation = torch.cat([innovation_xy, innovation_angle.unsqueeze(1)], dim=1)
 
             if loss_type == 'log_lik':
-                total_loss = total_loss + torch.sum(
-                    sign * torch.exp(logdet) + torch.einsum('ij, ijk, ik->i', innovation, smoothed_variance_tensor,
-                                                            innovation))
+                if 0 in sign or -1 in sign:
+                    print('*********************have problem**********')
+                total_loss = total_loss + 0.5 * torch.sum(logdet + torch.einsum('ij, ijk, ik->i', innovation,
+                                                                                           torch.linalg.inv(
+                                                                                            smoothed_variance_tensor),
+                                                                                           innovation))
             elif loss_type == 'mse':
                 total_loss = total_loss + torch.bmm(innovation.unsqueeze(1), innovation.unsqueeze(2)).sum()
             num_total_loss += 1
@@ -159,27 +163,30 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
 
 def load_dataset(file_name):
     total_dataset = np.load(file_name, allow_pickle=True)
-    return total_dataset[0:5], total_dataset[8:10]
+    return np.array([total_dataset[3], total_dataset[3]]), total_dataset[3:4]
+    # plt.scatter(total_dataset[3][:, 0], total_dataset[3][:, 1])
+    # plt.show()
+    # return total_dataset[0:int(len(total_dataset) * 0.8)], total_dataset[int(len(total_dataset) * 0.8):]
 
 
 if __name__ == '__main__':
     device = torch.device("cuda")
     file_name = 'new_total_data_after_clean.npy'
-    lr = 1e-4
+    lr = 1e-3
     batch_size = 10
     batch_trajectory_size = 10
-    epochs = 150
+    epochs = 1000
     beta = 1
     training_dataset, test_dataset = load_dataset(file_name)
 
     # table friction, table damping, table restitution, rim friction
-    init_params = torch.Tensor([0.10033657, 0.15026346, 0.79968596, 0.10029725]).to(device=device)
+    init_params = torch.Tensor([3e-3, 3e-3, 0.79968596, 0.10029725]).to(device=device)
     # init_params = init_params / torch.tensor([0.1, 0.1, 1, 1]) - 1
     # init_params = 0.5 * (torch.log(1 + init_params) - torch.log(1 - init_params))
 
-    # covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
-    covariance_params = torch.Tensor(
-        [0.00118112, 0.00100000, 0.00295336, 0.00392161, 0.00100000, 0.00100000, 0.00205159]).to(device=device)
+    covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
+    # covariance_params = torch.Tensor(
+    #     [0.00118112, 0.00100000, 0.00295336, 0.00392161, 0.00100000, 0.00100000, 0.00205159]).to(device=device)
     covariance_params = torch.log(covariance_params)
     # covariance_params = torch.log(covariance_params / (1-covariance_params))
     model = Kalman_Smooth_Gradient(init_params, covariance_params, segment_size=batch_trajectory_size, device=device,
@@ -188,19 +195,19 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     epoch = 0
-    writer = SummaryWriter('./alldata/77test')
+    writer = SummaryWriter('./alldata/79cutonecollisiononlytableparams' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
     for t in tqdm(range(epochs)):
         writer.add_scalar('dynamics/table damping', model.params[1], t)
         writer.add_scalar('dynamics/table friction', model.params[0], t)
         writer.add_scalar('dynamics/table restitution', model.params[2], t)
         writer.add_scalar('dynamics/rim friction', model.params[3], t)
-        writer.add_scalar('covariance/R0', model.covariance_params[0], t)
-        writer.add_scalar('covariance/R1', model.covariance_params[1], t)
-        writer.add_scalar('covariance/R2', model.covariance_params[2], t)
-        writer.add_scalar('covariance/Q01', model.covariance_params[3], t)
-        writer.add_scalar('covariance/Q23', model.covariance_params[4], t)
-        writer.add_scalar('covariance/Q4', model.covariance_params[5], t)
-        writer.add_scalar('covariance/Q5', model.covariance_params[6], t)
+        writer.add_scalar('covariance/R0', torch.exp(model.covariance_params[0]), t)
+        writer.add_scalar('covariance/R1', torch.exp(model.covariance_params[1]), t)
+        writer.add_scalar('covariance/R2', torch.exp(model.covariance_params[2]), t)
+        writer.add_scalar('covariance/Q01', torch.exp(model.covariance_params[3]), t)
+        writer.add_scalar('covariance/Q23', torch.exp(model.covariance_params[4]), t)
+        writer.add_scalar('covariance/Q4', torch.exp(model.covariance_params[5]), t)
+        writer.add_scalar('covariance/Q5', torch.exp(model.covariance_params[6]), t)
 
         training_segment_dataset = model.prepare_dataset(training_dataset, epoch=t, writer=writer, plot=True)
         training_index_list = range(len(training_segment_dataset))
@@ -209,14 +216,25 @@ if __name__ == '__main__':
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
             loss = model.compute_loss(training_segment_dataset[index_batch], training_dataset)
-            loss.backward()
-            print("loss:", loss.item())
-            print("dynamics: ", model.params.detach().cpu().numpy())
-            optimizer.step()
-            batch_loss.append(loss.detach().cpu().numpy())
+            if loss.requires_grad:
+                loss.backward()
+                print("loss:", loss.item())
+                print("dynamics: ", model.params.detach().cpu().numpy())
+                optimizer.step()
+                batch_loss.append(loss.detach().cpu().numpy())
+            else:
+                print("loss:", loss.item())
+                print("dynamics: ", model.params.detach().cpu().numpy())
+                batch_loss.append(loss.cpu().numpy())
+            # loss.backward()
+            # print("loss:", loss.item())
+            # print("dynamics: ", model.params.detach().cpu().numpy())
+            # optimizer.step()
+            # batch_loss.append(loss.detach().cpu().numpy())
         training_loss = np.mean(batch_loss)
         writer.add_scalar('loss/training_loss', training_loss, t)
-
+        with torch.no_grad():
+            plot_trajectory(abs(model.params), training_dataset, epoch=t, writer=writer)
         test_segment_dataset = model.prepare_dataset(test_dataset)
         test_index_list = range(len(test_segment_dataset))
         test_loader = Data.DataLoader(test_index_list, batch_size=batch_size, shuffle=True)

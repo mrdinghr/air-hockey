@@ -1,4 +1,6 @@
 from math import pi
+
+import numpy as np
 import torch
 
 device = torch.device("cuda")
@@ -75,7 +77,7 @@ class AirHockeyTable:
         self.m_e = restitution
         self.m_rimFriction = rimFriction
 
-    def apply_collision(self, state):
+    def apply_collision(self, state, epoch=0):
         pos = state[0:2]
         vel = state[2:4]
         angle = state[4]
@@ -108,7 +110,7 @@ class AirHockeyTable:
                 vecN = torch.stack([-v[1] / torch.linalg.norm(v), v[0] / torch.linalg.norm(v)]).to(device=device)
                 vtScalar = torch.dot(vel, vecT)
                 vnSCalar = torch.dot(vel, vecN)
-                '''
+
                 if torch.abs(vtScalar + self.m_puckRadius * ang_vel) < 3 * self.m_rimFriction * (
                         1 + self.m_e) * torch.abs(vnSCalar):
                     # Velocity on next time step without sliding
@@ -159,9 +161,10 @@ class AirHockeyTable:
                     else:
                         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
                 '''
+                beta = np.exp(0.001*epoch)
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
-                weight = torch.sigmoid(self.beta * weight)
+                weight = torch.sigmoid(beta * weight)
                 slideDir = torch.sign(vtScalar + ang_vel * self.m_puckRadius)
                 vtNextSCalar = weight * (2 * vtScalar / 3 - self.m_puckRadius * ang_vel / 3) + (1 - weight) * (
                         vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar)
@@ -186,6 +189,7 @@ class AirHockeyTable:
                     cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
                 else:
                     cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
+                '''
                 cur_state[0:2] = state_pre + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
                 # state.detach_()
                 # cur_state[2:4] = -self.m_e * vnSCalar.detach() * vecN + vtNextSCalar.detach() * vecT

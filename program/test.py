@@ -9,8 +9,16 @@ import torch.utils.data as Data
 from torch.utils.data import Dataset
 from test_params import plot_trajectory
 
-writer = SummaryWriter('./alldata/77test')
-print(writer != None)
+
+all_trajectory = np.load('new_total_data_after_clean.npy')
+
+
+# def has_collision(pre, cur, next):
+#     if
+
+
+# writer = SummaryWriter('./alldata/77test')
+# print(writer != None)
 
 # table friction, table damping, table restitution, rim friction
 # init_params = torch.Tensor([0.10033657, 0.15026346, 0.79968596, 0.10029725])

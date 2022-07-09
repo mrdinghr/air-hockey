@@ -9,18 +9,32 @@ def has_collision(pre, cur, next):
     return False
 
 
-trajectory_after_cut = []
-for trajectory in all_trajectory:
-    begin = 2
-    for i in range(2, len(trajectory) - 2):
-        if has_collision(trajectory[i - 1], trajectory[i], trajectory[i + 2]):
-            if i - 2 - 5 > begin:
-                trajectory_after_cut.append(trajectory[begin:i])
-            begin = i + 2
-trajectory_after_cut = np.array(trajectory_after_cut)
-for i in range(len(trajectory_after_cut)):
-    plt.figure()
-    plt.scatter(trajectory_after_cut[i][:, 0], trajectory_after_cut[i][:, 1])
+def detect_collision(trajectory):
+    trajectory_batch_with_one_collision = []
+    collision = False
+    for i in range(len(trajectory) - 2):
+
+        return
+
+plt.scatter(all_trajectory[3][:, 0], all_trajectory[3][:, 1])
+# for trajecotry in all_trajectory:
+#     plt.figure()
+#     plt.scatter(trajecotry[:, 0], trajecotry[:, 1])
 plt.show()
-np.save('new_trajectory_after_cut', trajectory_after_cut)
+
+
+# cut trajectory into no collision part
+# trajectory_after_cut = []
+# for trajectory in all_trajectory:
+#     begin = 2
+#     for i in range(2, len(trajectory) - 2):
+#         if has_collision(trajectory[i - 1], trajectory[i], trajectory[i + 2]):
+#             if i - 2 - 15 > begin:
+#                 trajectory_after_cut.append(trajectory[begin:i])
+#             begin = i + 2
+# trajectory_after_cut = np.array(trajectory_after_cut)
+# for i in range(len(trajectory_after_cut)):
+#     print(len(trajectory_after_cut[i]))
+# # plt.show()
+# np.save('new_trajectory_after_cut', trajectory_after_cut)
 

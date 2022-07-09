@@ -27,31 +27,38 @@ def calculate_init_state(trajectory):
 
 
 # table friction, table damping, table restitution, rim friction
-def plot_trajectory(index, params):
-    data_set = np.load('new_total_data_after_clean.npy', allow_pickle=True)
+def plot_trajectory(params, trajectories, epoch=0, writer=None):
+    # data_set = np.load('new_total_data_after_clean.npy', allow_pickle=True)
     # data_set = np.load('example_data.npy')
     params = params.cpu().numpy()
-    trajectory_index = index  # choose which trajectory to test, current total 150 trajectories 2022.06.21
-    init_state = calculate_init_state(data_set[trajectory_index]).cpu().numpy()
-    state_num = 150
-    table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                               restitution=params[2], rimFriction=params[3], dt=1 / 120)
-    system = air_hockey_baseline.SystemModel(tableDamping=params[1], tableFriction=params[0], tableLength=1.948,
-                                             tableWidth=1.038, goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
-                                             tableRes=params[2], malletRes=0.04815, rimFriction=params[3], dt=1 / 120)
-    test_params_trajectory_plot(init_state=init_state, table=table, system=system, u=1/120, state_num=state_num)
-    plt.scatter(data_set[trajectory_index][:, 0], data_set[trajectory_index][:, 1], label='record data', c='r')
-    plt.scatter(data_set[trajectory_index][0, 0], data_set[trajectory_index][0, 1], c='g', marker='*', s=80)
-    plt.legend()
-    plt.show()
+    for trajectory_index, data_set in enumerate(trajectories):
+        # trajectory_index = index  # choose which trajectory to test, current total 150 trajectories 2022.06.21
+        init_state = calculate_init_state(data_set).cpu().numpy()
+        state_num = len(data_set)
+        table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
+                                                   restitution=params[2], rimFriction=params[3], dt=1 / 120)
+        system = air_hockey_baseline.SystemModel(tableDamping=params[1], tableFriction=params[0], tableLength=1.948,
+                                                 tableWidth=1.038, goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
+                                                 tableRes=params[2], malletRes=0.04815, rimFriction=params[3], dt=1 / 120)
+        plt.figure()
+        test_params_trajectory_plot(init_state=init_state, table=table, system=system, u=1/120, state_num=state_num)
+        # plt.figure()
+        plt.scatter(data_set[:state_num, 0], data_set[:state_num, 1], label='record data', c='g')
+        plt.scatter(data_set[0, 0], data_set[0, 1], c='r', marker='*', s=80)
+        plt.legend()
+        writer.add_figure('trajectory_' + str(trajectory_index) + '/prediction', plt.gcf(), epoch)
+        plt.close()
+    # plt.show()
 
 
 # input: state_list:calculated by EKF and kalman smooth, correspond trajectory
 # output: draw the trajectory and position, velocity
 # color: r smooth b EKF g data
 def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_list, writer=None, epoch=0, trajectory_index = None):
-    EKF_state_list = torch.tensor([item.clone().cpu().numpy() for item in EKF_state_list], device=device).cpu().numpy()
-    smooth_state_list = torch.tensor([item.clone().cpu().numpy() for item in smooth_state_list], device=device).cpu().numpy()
+    # EKF_state_list = torch.tensor([item.clone().cpu().numpy() for item in EKF_state_list], device=device).cpu().numpy()
+    EKF_state_list = torch.stack(EKF_state_list).cpu().numpy()
+    # smooth_state_list = torch.tensor([item.clone().cpu().numpy() for item in smooth_state_list], device=device).cpu().numpy()
+    smooth_state_list = torch.stack(smooth_state_list).cpu().numpy()
     trajectory = trajectory.cpu().numpy()
     x_velocity = []
     y_velocity = []
@@ -70,7 +77,7 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.scatter(smooth_state_list[:, 0], smooth_state_list[:, 1], c='r', label='Smooth trajectory')
     plt.legend()
     if writer!= None:
-        writer.add_figure('trajectory'+str(trajectory_index), plt.gcf(), epoch)
+        writer.add_figure('trajectory_'+str(trajectory_index) + "/cartesian", plt.gcf(), epoch)
     # position x
     plt.figure()
     plt.subplot(3, 1, 1)
@@ -93,7 +100,7 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 4], label='Smooth trajectory', c='r')
     plt.legend()
     if writer != None:
-        writer.add_figure('trajectory '+str(trajectory_index)+' position compare', plt.gcf(), epoch)
+        writer.add_figure('trajectory_'+str(trajectory_index)+'/position', plt.gcf(), epoch)
     plt.figure()
     plt.subplot(3, 1, 1)
     plt.title('x velocity')
@@ -114,13 +121,15 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 5], label='Smooth trajectory', c='r')
     plt.legend()
     if writer != None:
-        writer.add_figure('trajectory '+str(trajectory_index)+' velocity compare', plt.gcf(), epoch)
+        writer.add_figure('trajectory_'+str(trajectory_index)+'/velocity', plt.gcf(), epoch)
+    plt.close()
     # plt.show()
 
 
 if __name__ == '__main__':
-    init_params = torch.tensor([])
-    index = 5
+    # table friction, table damping, table restitution, rim friction
+    init_params = torch.tensor([0.3942, 0.394, 0.6852, 0.03275])
+    index = 8
     plot_trajectory(index, init_params)
 
 
