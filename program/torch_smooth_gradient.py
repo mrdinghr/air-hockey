@@ -193,9 +193,8 @@ if __name__ == '__main__':
                                    beta=beta)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
     epoch = 0
-    writer = SummaryWriter('./alldata/79cutonecollisiononlytableparams' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
+    writer = SummaryWriter('./alldata/710test' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
     for t in tqdm(range(epochs)):
         writer.add_scalar('dynamics/table damping', model.params[1], t)
         writer.add_scalar('dynamics/table friction', model.params[0], t)
