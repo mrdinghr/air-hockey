@@ -60,8 +60,10 @@ class AirHockeyEKF:
         self.S = self.H @ self.P @ self.H.T + self.R
         # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
-        self.state = self.predict_state + K @ self.y
-        self.P = (torch.eye(6, device=self.device) - K @ self.H) @ self.P
+        # self.state = self.predict_state + K @ self.y
+        self.state = self.predict_state
+        # self.P = (torch.eye(6, device=self.device) - K @ self.H) @ self.P
+        self.P = self.P
 
     def refresh(self, P, Q, R):
         self.P = P
@@ -173,13 +175,13 @@ class AirHockeyEKF:
 
     def kalman_filter(self, init_state, trajectory, plot=False, writer=None, trajectory_index=None, epoch=0):
         self.initialize(init_state)
-        EKF_res_state = [init_state]
+        EKF_res_state = [init_state.clone()]
         EKF_res_P = []
         innovation_vector = []
         innovation_variance = []
         EKF_res_collision = []
         i = 0
-        j = 1
+        j = 0
         length = len(trajectory)
         time_EKF = [0]
         while j < length - 1:
@@ -187,7 +189,7 @@ class AirHockeyEKF:
             time_EKF.append(i / 120)
             self.predict()
 
-            if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[1][-1] <= (i + 0.5) / 120:
+            if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[0][-1] <= (i + 0.5) / 120:
                 self.update(trajectory[j + 1][0:3])
                 j += 1
                 EKF_res_state.append(self.predict_state)
@@ -195,7 +197,7 @@ class AirHockeyEKF:
                 innovation_vector.append(self.y)
                 innovation_variance.append(self.S)
                 EKF_res_collision.append(self.has_collision)
-            elif trajectory[j + 1][-1] - trajectory[1][-1] < (i - 0.5) / 120:
+            elif trajectory[j + 1][-1] - trajectory[0][-1] < (i - 0.5) / 120:
                 j = j + 1
                 i = i - 1
                 self.state = self.predict_state

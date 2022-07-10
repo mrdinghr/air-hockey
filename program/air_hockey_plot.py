@@ -63,7 +63,9 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num):
     table_plot(table)
     resX = []
     resY = []
+    res_state = [init_state]
     state = init_state
+    time_list = [1/120]
     for i in range(state_num):
         has_collision, state, jacobian, score = table.apply_collision(state)
         if score:
@@ -72,4 +74,7 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num):
             state = system.f(state, u)
         resX.append(state[0])
         resY.append(state[1])
+        res_state.append(state)
+        time_list.append((i+2)/120)
     plt.scatter(resX, resY, alpha=0.1, c='b', label='predict state by params')
+    return res_state, time_list

@@ -82,7 +82,6 @@ class AirHockeyTable:
         vel = state[2:4]
         angle = state[4]
         ang_vel = state[5]
-
         score = False
         if torch.abs(pos[1]) < self.m_goalWidth / 2 and pos[0] < self.m_boundary[0][0] + self.m_puckRadius:
             score = True
@@ -111,56 +110,55 @@ class AirHockeyTable:
                 vtScalar = torch.dot(vel, vecT)
                 vnSCalar = torch.dot(vel, vecN)
 
-                if torch.abs(vtScalar + self.m_puckRadius * ang_vel) < 3 * self.m_rimFriction * (
-                        1 + self.m_e) * torch.abs(vnSCalar):
-                    # Velocity on next time step without sliding
-                    vtNextSCalar = 2 * vtScalar / 3 - self.m_puckRadius * ang_vel / 3
-                    vnNextScalar = -self.m_e * vnSCalar
-                    # Angular volocity next point
-                    cur_state5 = ang_vel / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
-                    # cur_state[5] = dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
-                    # update jacobian
-                    self.m_jacCollision = torch.eye(6, device=device)
-                    self.m_jacCollision[0][2] = self.m_dt
-                    self.m_jacCollision[1][3] = self.m_dt
-                    self.m_jacCollision[2][2] = 2 / 3
-                    self.m_jacCollision[2][5] = -self.m_puckRadius / 3
-                    self.m_jacCollision[3][3] = -self.m_e
-                    self.m_jacCollision[4][5] = self.m_dt
-                    self.m_jacCollision[5][2] = -2 / (3 * self.m_puckRadius)
-                    self.m_jacCollision[5][5] = 1 / 3
-                    jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
-                    if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
-                        cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
-                    elif theta_pre + (1 - s) * cur_state5 * self.m_dt < -pi:
-                        cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
-                    else:
-                        cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
-                else:
-                    # velocity on next time step with sliding
-                    slideDir = (vtScalar + ang_vel * self.m_puckRadius) / torch.abs(
-                        vtScalar + ang_vel * self.m_puckRadius)
-                    vtNextSCalar = vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar
-                    vnNextScalar = -self.m_e * vnSCalar
-                    cur_state5 = ang_vel + 2 * self.m_rimFriction * slideDir * (
-                            1 + self.m_e) * vnSCalar / self.m_puckRadius
-                    # cur_state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
-                    #         1 + self.m_e) * vnSCalar / self.m_puckRadius
-                    self.m_jacCollision = torch.eye(6, device=device)
-                    self.m_jacCollision[0][2] = self.m_dt
-                    self.m_jacCollision[1][3] = self.m_dt
-                    self.m_jacCollision[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
-                    self.m_jacCollision[3][3] = -self.m_e
-                    self.m_jacCollision[4][5] = self.m_dt
-                    self.m_jacCollision[5][3] = self.m_jacCollision[2][3] * 2 / self.m_puckRadius
-                    jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
-                    if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
-                        cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
-                    elif theta_pre + (1 - s) * cur_state5 * self.m_dt < -pi:
-                        cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
-                    else:
-                        cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
-                '''
+                # if torch.abs(vtScalar + self.m_puckRadius * ang_vel) < 3 * self.m_rimFriction * (
+                #         1 + self.m_e) * torch.abs(vnSCalar):
+                #     # Velocity on next time step without sliding
+                #     vtNextSCalar = 2 * vtScalar / 3 - self.m_puckRadius * ang_vel / 3
+                #     vnNextScalar = -self.m_e * vnSCalar
+                #     # Angular volocity next point
+                #     cur_state5 = ang_vel / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
+                #     # cur_state[5] = dtheta / 3 - 2 * vtScalar / (3 * self.m_puckRadius)
+                #     # update jacobian
+                #     self.m_jacCollision = torch.eye(6, device=device)
+                #     self.m_jacCollision[0][2] = self.m_dt
+                #     self.m_jacCollision[1][3] = self.m_dt
+                #     self.m_jacCollision[2][2] = 2 / 3
+                #     self.m_jacCollision[2][5] = -self.m_puckRadius / 3
+                #     self.m_jacCollision[3][3] = -self.m_e
+                #     self.m_jacCollision[4][5] = self.m_dt
+                #     self.m_jacCollision[5][2] = -2 / (3 * self.m_puckRadius)
+                #     self.m_jacCollision[5][5] = 1 / 3
+                #     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
+                #     if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
+                #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
+                #     elif theta_pre + (1 - s) * cur_state5 * self.m_dt < -pi:
+                #         cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
+                #     else:
+                #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
+                # else:
+                #     # velocity on next time step with sliding
+                #     slideDir = torch.sign(vtScalar + ang_vel * self.m_puckRadius)
+                #     vtNextSCalar = vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar
+                #     vnNextScalar = -self.m_e * vnSCalar
+                #     cur_state5 = ang_vel + 2 * self.m_rimFriction * slideDir * (
+                #             1 + self.m_e) * vnSCalar / self.m_puckRadius
+                #     # cur_state[5] = dtheta + 2 * self.m_rimFriction * slideDir * (
+                #     #         1 + self.m_e) * vnSCalar / self.m_puckRadius
+                #     self.m_jacCollision = torch.eye(6, device=device)
+                #     self.m_jacCollision[0][2] = self.m_dt
+                #     self.m_jacCollision[1][3] = self.m_dt
+                #     self.m_jacCollision[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
+                #     self.m_jacCollision[3][3] = -self.m_e
+                #     self.m_jacCollision[4][5] = self.m_dt
+                #     self.m_jacCollision[5][3] = self.m_jacCollision[2][3] * 2 / self.m_puckRadius
+                #     jacobian = self.m_rimGlobalTransformsInv[i] @ self.m_jacCollision @ self.m_rimGlobalTransforms[i]
+                #     if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
+                #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
+                #     elif theta_pre + (1 - s) * cur_state5 * self.m_dt < -pi:
+                #         cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
+                #     else:
+                #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
+
                 beta = np.exp(0.001*epoch)
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
@@ -189,7 +187,7 @@ class AirHockeyTable:
                     cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
                 else:
                     cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
-                '''
+
                 cur_state[0:2] = state_pre + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
                 # state.detach_()
                 # cur_state[2:4] = -self.m_e * vnSCalar.detach() * vecN + vtNextSCalar.detach() * vecT

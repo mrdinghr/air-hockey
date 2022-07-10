@@ -65,8 +65,8 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
         #                                            self.covariance_params[1],
         #                                            self.covariance_params[2]])))
         self.P = torch.eye(6, device=device) * 0.01
-        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1].detach().clone(),
-                                                            tableFriction=self.dyna_params[0].detach().clone(),
+        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1],
+                                                            tableFriction=self.dyna_params[0],
                                                             tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
                                                             puckRadius=0.03165, malletRadius=0.04815,
                                                             tableRes=self.dyna_params[2],
