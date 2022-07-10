@@ -4,6 +4,7 @@ import torch_air_hockey_baseline_no_detach
 from matplotlib import pyplot as plt
 import numpy as np
 from test_params import plot_with_state_list
+from test_params import EKF_plot_with_state_list
 
 
 class AirHockeyEKF:
@@ -101,10 +102,8 @@ class AirHockeyEKF:
         i = 0
         j = 1
         length = len(trajectory)
-        time_EKF = [0]
         while j < length - 1:
             i += 1
-            time_EKF.append(i / 120)
             self.predict()
             EKF_res_state.append(self.predict_state)
             EKF_res_P.append(self.P)
@@ -171,6 +170,42 @@ class AirHockeyEKF:
                 smoothed_state_list.append(xs)
                 smoothed_variance_list.append(self.H @ ps @ self.H.T + self.R)
         return smoothed_state_list, smoothed_variance_list
+
+    def kalman_filter(self, init_state, trajectory, plot=False, writer=None, trajectory_index=None, epoch=0):
+        self.initialize(init_state)
+        EKF_res_state = [init_state]
+        EKF_res_P = []
+        innovation_vector = []
+        innovation_variance = []
+        EKF_res_collision = []
+        i = 0
+        j = 1
+        length = len(trajectory)
+        time_EKF = [0]
+        while j < length - 1:
+            i += 1
+            time_EKF.append(i / 120)
+            self.predict()
+
+            if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[1][-1] <= (i + 0.5) / 120:
+                self.update(trajectory[j + 1][0:3])
+                j += 1
+                EKF_res_state.append(self.predict_state)
+                EKF_res_P.append(self.P)
+                innovation_vector.append(self.y)
+                innovation_variance.append(self.S)
+                EKF_res_collision.append(self.has_collision)
+            elif trajectory[j + 1][-1] - trajectory[1][-1] < (i - 0.5) / 120:
+                j = j + 1
+                i = i - 1
+                self.state = self.predict_state
+            else:
+                self.state = self.predict_state
+        if plot:
+            EKF_plot_with_state_list(EKF_res_state, trajectory, writer=writer, trajectory_index=trajectory_index,epoch=epoch)
+        return EKF_res_state, EKF_res_collision, innovation_vector, innovation_variance
+
+
 
 
 if __name__ == '__main__':

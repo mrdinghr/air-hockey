@@ -1,167 +1,214 @@
-import torch
-import torch_air_hockey_baseline
-from torch_EKF_Wrapper import air_hockey_EKF
-from matplotlib import pyplot as plt
-from math import pi
+import datetime
 import numpy as np
-import time
-import random
-device = torch.device("cuda")
-table_length = 1.948
-torch.set_printoptions(precision=8)
+import torch.utils.data as Data
+from torch.utils.data import Dataset
+from torch.utils.tensorboard import SummaryWriter
+from matplotlib import pyplot as plt
+import torch
+import torch_air_hockey_baseline_no_detach as torch_air_hockey_baseline
+# import torch_air_hockey_baseline
+from torch_EKF_Wrapper import AirHockeyEKF
+from math import pi
+from test_params import plot_with_state_list
+from test_params import plot_trajectory
+from tqdm import tqdm
 
 
-def preprocess_data(pre_data):
-    data = []
-    for i in range(1, len(pre_data)):
-        if abs(pre_data[i][0] - pre_data[i - 1][0]) < 0.005 and abs(pre_data[i][1] - pre_data[i - 1][1]) < 0.005:
-            continue
-        data.append(pre_data[i])
-    for i_data in data:
-        i_data[0] += table_length / 2
-    data = torch.tensor(data, device=device).float()
-    # EKF initialized state
-    state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
-            data[2][0] - data[1][0]) / (
-                        data[2][3] - data[1][3]) + (data[3][0] - data[2][0]) / (
-                        data[3][3] - data[2][3])) / 3
-    state_dy = ((data[1][1] - data[0][1]) / (data[1][3] - data[0][3]) + (
-            data[2][1] - data[1][1]) / (
-                        data[2][3] - data[1][3]) + (data[3][1] - data[2][1]) / (
-                        data[3][3] - data[2][3])) / 3
-    state_dtheta = ((data[1][2] - data[0][2]) / (data[1][3] - data[0][3]) + (
-            data[2][2] - data[1][2]) / (
-                            data[2][3] - data[1][3]) + (data[3][2] - data[2][2]) / (
-                            data[3][3] - data[2][3])) / 3
-    state = torch.tensor([data[1][0], data[1][1], state_dx, state_dy, data[1][2], state_dtheta], device=device)
-    return data, state
-
-
-def calculate_init_state(data):
-    state_dx = ((data[1][0] - data[0][0]) / (data[1][3] - data[0][3]) + (
-            data[2][0] - data[1][0]) / (
-                        data[2][3] - data[1][3]) + (data[3][0] - data[2][0]) / (
-                        data[3][3] - data[2][3])) / 3
-    state_dy = ((data[1][1] - data[0][1]) / (data[1][3] - data[0][3]) + (
-            data[2][1] - data[1][1]) / (
-                        data[2][3] - data[1][3]) + (data[3][1] - data[2][1]) / (
-                        data[3][3] - data[2][3])) / 3
-    state_dtheta = ((data[1][2] - data[0][2]) / (data[1][3] - data[0][3]) + (
-            data[2][2] - data[1][2]) / (
-                            data[2][3] - data[1][3]) + (data[3][2] - data[2][2]) / (
-                            data[3][3] - data[2][3])) / 3
-    state = torch.tensor([data[1][0], data[1][1], state_dx, state_dy, data[1][2], state_dtheta], device=device)
-    return state
-
-
-class EKFGradient(torch.nn.Module):
-    def __init__(self, params, covariance_params):
-        super(EKFGradient, self).__init__()
-        self.register_parameter('dyna_params', torch.nn.Parameter(params))
+class Kalman_EKF_Gradient(torch.nn.Module):
+    def __init__(self, params, covariance_params, beta, segment_size, device):
+        super(Kalman_EKF_Gradient, self).__init__()
+        self.register_parameter('params', torch.nn.Parameter(params))
+        # self.register_parameter('covariance_params', torch.nn.Parameter(covariance_params))
         self.covariance_params = covariance_params
-        # self.register_parameter('covariance_params', covariance_params)
-        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1], tableFriction=self.dyna_params[0],
-                                                       tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
-                                                       puckRadius=0.03165, malletRadius=0.04815, tableRes=self.dyna_params[2],
-                                                       malletRes=0.8, rimFriction=self.dyna_params[3], dt=1 / 120)
-        self.table = torch_air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                                         restitution=self.dyna_params[2], rimFriction=self.dyna_params[3], dt=1 / 120)
+        self.segment_size = segment_size
+        self.device = device
+        self.dyna_params = None
+        # self.covariance_params = covariance_params
+        self.system = None
+        self.table = None
+        self.puck_EKF = None
+        self.R = None
+        self.Q = None
+        self.P = None
+        self.beta = beta
 
-        self.R = torch.zeros((3, 3), device=device)
-        self.R[0][0] = self.covariance_params[0]
-        self.R[1][1] = self.covariance_params[1]
-        self.R[2][2] = self.covariance_params[2]
-        self.Q = torch.zeros((6, 6), device=device)
-        self.Q[0][0] = self.covariance_params[3]
-        self.Q[1][1] = self.covariance_params[3]
-        self.Q[2][2] = self.covariance_params[4]
-        self.Q[3][3] = self.covariance_params[4]
-        self.Q[4][4] = self.covariance_params[5]
-        self.Q[5][5] = self.covariance_params[6]
+    def construct_EKF(self):
+        self.dyna_params = torch.abs(self.params)
+        self.R = torch.diag(torch.exp(torch.stack([self.covariance_params[0],
+                                                   self.covariance_params[1],
+                                                   self.covariance_params[2]])))
+        self.Q = torch.diag(torch.exp(torch.stack([self.covariance_params[3], self.covariance_params[3],
+                                                   self.covariance_params[4], self.covariance_params[4],
+                                                   self.covariance_params[5], self.covariance_params[6]])))
+        # self.Q = torch.diag(torch.abs(torch.stack([self.covariance_params[3], self.covariance_params[3],
+        #                                            self.covariance_params[4], self.covariance_params[4],
+        #                                            self.covariance_params[5], self.covariance_params[6]])) + 1e-6)
+        # self.R = torch.diag(torch.abs(torch.stack([self.covariance_params[0],
+        #                                            self.covariance_params[1],
+        #                                            self.covariance_params[2]])))
         self.P = torch.eye(6, device=device) * 0.01
+        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1].detach().clone(),
+                                                            tableFriction=self.dyna_params[0].detach().clone(),
+                                                            tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
+                                                            puckRadius=0.03165, malletRadius=0.04815,
+                                                            tableRes=self.dyna_params[2],
+                                                            malletRes=0.8, rimFriction=self.dyna_params[3], dt=1 / 120,
+                                                            beta=self.beta)
+        self.puck_EKF = AirHockeyEKF(u=1 / 120., system=self.system, Q=self.Q, R=self.R, P=self.P, device=self.device)
 
-        self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
+    def prepare_dataset(self, trajectory_buffer, writer=None, plot=False, epoch=0):
+        self.construct_EKF()
+        segments_dataset = []
+        with torch.no_grad():
+            for trajectory_index, trajectory in enumerate(trajectory_buffer):
+                trajectory_tensor = torch.tensor(trajectory, device=self.device).float()
+                init_state = self.calculate_init_state(trajectory)
+                EKF_state, collisions, _, _ = self.puck_EKF.kalman_filter(init_state, trajectory_tensor, plot=plot, writer=writer, trajectory_index=trajectory_index, epoch=epoch)
+                segments_dataset.append(
+                    torch.vstack(self.construct_data_segments(EKF_state, collisions, trajectory_index)))
+        return torch.vstack(segments_dataset)
 
-    def forward(self, raw_data):
-        loss = self.calculate_loss(raw_data)
-        return loss
+    def calculate_init_state(self, trajectory):
+        dx = ((trajectory[1][0] - trajectory[0][0]) / (trajectory[1][3] - trajectory[0][3]) + (
+                trajectory[2][0] - trajectory[1][0]) / (
+                      trajectory[2][3] - trajectory[1][3]) + (trajectory[3][0] - trajectory[2][0]) / (
+                      trajectory[3][3] - trajectory[2][3])) / 3
+        dy = ((trajectory[1][1] - trajectory[0][1]) / (trajectory[1][3] - trajectory[0][3]) + (
+                trajectory[2][1] - trajectory[1][1]) / (
+                      trajectory[2][3] - trajectory[1][3]) + (trajectory[3][1] - trajectory[2][1]) / (
+                      trajectory[3][3] - trajectory[2][3])) / 3
+        dtheta = ((trajectory[1][2] - trajectory[0][2]) / (trajectory[1][3] - trajectory[0][3]) + (
+                trajectory[2][2] - trajectory[1][2]) / (
+                          trajectory[2][3] - trajectory[1][3]) + (trajectory[3][2] - trajectory[2][2]) / (
+                          trajectory[3][3] - trajectory[2][3])) / 3
+        state_ = torch.tensor([trajectory[1][0], trajectory[1][1], dx, dy, trajectory[1][2], dtheta],
+                              device=self.device).float()
+        return state_
 
-    def calculate_loss(self, raw_data, state):
-        self.puck_EKF.init_state(state)
-        data = raw_data
-        # evaluation = 0
-        # num_evaluation = 0  # record the update time to normalize
-        evaluation = torch.tensor([0], device=device, dtype=float, requires_grad=True)
-        # evaluation = torch.zeros(len(data)-2, dtype=float, device=device)   # calculate log_Ly_theta
-        # evaluation = 0
-        j = 1
-        i = 0
-        while j < len(data) - 1:
-            i = i + 1
-            self.puck_EKF.predict()
-            # check whether data is recorded at right time
-            if (i - 0.2) / 120 < data[j+1][-1] - data[1][-1] < (i + 0.2) / 120:
-                self.puck_EKF.update(data[j + 1][0:3])
-                j = j + 1
-                sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
-                cur_point_loss = sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
-                # evaluation[j-2] = cur_log
-                evaluation = torch.cat((evaluation, torch.atleast_1d(cur_point_loss)))
-                # evaluation = evaluation + sign * torch.exp(logdet) + self.puck_EKF.y.T @ torch.linalg.inv(self.puck_EKF.S) @ self.puck_EKF.y
-                # num_evaluation += 1
-            elif data[j + 1][-1] - data[1][-1] <= (i - 0.2) / 120:
-                j = j + 1
-                self.puck_EKF.state = self.puck_EKF.predict_state
+    def construct_data_segments(self, EKF_state, collisions, trajectory_index):
+        segment_dataset = []
+        for j in range(len(EKF_state) - self.segment_size + 1):
+            if np.any(collisions[j: j + self.segment_size]):
+                cur_state = EKF_state[j]
+                index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
+                segment_dataset.append(torch.cat((index_tensor, cur_state)))
             else:
-                self.puck_EKF.state = self.puck_EKF.predict_state
-        # cur_loss = evaluation / num_evaluation
-        # evaluation.requires_grad
-        # evaluation.retain_grad()
-        # loss = torch.mean(evaluation)
-        # loss = evaluation / num_evaluation
-        # cur_loss.requires_grad_(True)
-        return torch.mean(evaluation)
+                if j % (batch_size / 2) == 0:
+                    cur_state = EKF_state[j]
+                    index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
+                    segment_dataset.append(torch.cat((index_tensor, cur_state)))
+        return segment_dataset
+
+    def calculate_loss(self, EKF_segments_batch, measurements, los_typ='log_like'):
+        self.construct_EKF()
+        total_loss = 0
+        num_total_loss = 0
+        for point in EKF_segments_batch:
+            trajectory_idx = int(point[0])
+            trajectory_point_idx = int(point[1])
+            segment_measurment = torch.tensor(
+                measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size],
+                device=self.device).float()
+            _, _, innovation_vectors, innovation_variance = self.puck_EKF.kalman_filter(point[2:], segment_measurment)
+            for i in range(len(innovation_vectors)):
+                sign, logdet = torch.linalg.slogdet(innovation_variance[i])
+                if innovation_vectors[i][2] > 1.5*pi:
+                    innovation_vectors2 = innovation_vectors[i][2] - 2*pi
+                elif innovation_vectors[i][2] < -1.5*pi:
+                    innovation_vectors2 = innovation_vectors[i][2] + 2*pi
+                else:
+                    innovation_vectors2 = innovation_vectors[i][2]
+                innovation = torch.cat([innovation_vectors[i][0:2], torch.atleast_1d(innovation_vectors2)])
+                if los_typ == 'log_like':
+                    total_loss = total_loss + 0.5*(logdet + innovation_vectors[i] @ innovation_variance[i] @ innovation_vectors[i])
+                elif los_typ == 'mse':
+                    total_loss = total_loss + 0.5 * (innovation_vectors[i] @ innovation_vectors[i])
+            num_total_loss += 1
+        return total_loss / num_total_loss
 
 
-init_params = torch.Tensor([0.125, 0.375, 0.6749999523162842, 0.2])
-covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
-model = EKFGradient(init_params, covariance_params)
-all_data = np.load('total_data.npy', allow_pickle=True)
-all_data = all_data[0:5]
-# pre_data = np.load("example_data2.npy")
-# raw_data, init_state = preprocess_data(pre_data)
-learning_rate = 1e-5
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-raw_data = []
-init_state = []
-for t in range(len(all_data)):
-    cur_raw, cur_init = preprocess_data(all_data[t])
-    raw_data.append(cur_raw)
-    init_state.append(cur_init)
-# use autograd to optimize parameters
-for t in range(5):
-    loss = torch.zeros(len(all_data), device=device)
-    for i in range(len(all_data)):
-        loss[i] = model.calculate_loss(raw_data[i], init_state[i])
-        model.puck_EKF.refresh(model.P, model.Q, model.R)
-    start = time.time()
-    optimizer.zero_grad()
-    total_loss = torch.sum(loss)
-    total_loss.backward(retain_graph=True)
-    end = time.time()
-    print('time'+str(end-start))
-    plt.scatter(t, total_loss.item(), color='b')
-    print(t, total_loss)
-    print('dyna_params:')
-    print(model.get_parameter('dyna_params'))
-    # print(model.get_parameter('covparams'))
-    print('grad:')
-    print(model.get_parameter('dyna_params').grad)
-    # print(covariance_params.grad)
-    optimizer.step()
-    for p in model.get_parameter('dyna_params'):
-        p.data.clamp_(0, 1)
-    # for p in model.get_parameter('covparams'):
-    #     p.data.clamp_(-100, 100)
-plt.title('loss curve')
-plt.show()
+def load_dataset(file_name):
+    total_dataset = np.load(file_name, allow_pickle=True)
+    return np.array([total_dataset[3][:-5], total_dataset[3][:-5]]), total_dataset[3:4]
+    # plt.scatter(total_dataset[3][:, 0], total_dataset[3][:, 1])
+    # plt.show()
+    # return total_dataset[0:int(len(total_dataset) * 0.8)], total_dataset[int(len(total_dataset) * 0.8):]
+
+
+if __name__ == '__main__':
+    device = torch.device("cuda")
+    file_name = 'new_total_data_after_clean.npy'
+    lr = 1e-3
+    batch_size = 10
+    batch_trajectory_size = 10
+    epochs = 1000
+    beta = 1
+    training_dataset, test_dataset = load_dataset(file_name)
+
+    # table friction, table damping, table restitution, rim friction
+    init_params = torch.Tensor([3e-3, 3e-3, 0.79968596, 0.10029725]).to(device=device)
+    # init_params = init_params / torch.tensor([0.1, 0.1, 1, 1]) - 1
+    # init_params = 0.5 * (torch.log(1 + init_params) - torch.log(1 - init_params))
+
+    covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
+    # covariance_params = torch.Tensor(
+    #     [0.00118112, 0.00100000, 0.00295336, 0.00392161, 0.00100000, 0.00100000, 0.00205159]).to(device=device)
+    covariance_params = torch.log(covariance_params)
+    # covariance_params = torch.log(covariance_params / (1-covariance_params))
+    model = Kalman_EKF_Gradient(init_params, covariance_params, segment_size=batch_trajectory_size, device=device,
+                                   beta=beta)
+
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+
+    epoch = 0
+    writer = SummaryWriter('./alldata/710test' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
+    for t in tqdm(range(epochs)):
+        writer.add_scalar('dynamics/table damping', model.params[1], t)
+        writer.add_scalar('dynamics/table friction', model.params[0], t)
+        writer.add_scalar('dynamics/table restitution', model.params[2], t)
+        writer.add_scalar('dynamics/rim friction', model.params[3], t)
+        writer.add_scalar('covariance/R0', torch.exp(model.covariance_params[0]), t)
+        writer.add_scalar('covariance/R1', torch.exp(model.covariance_params[1]), t)
+        writer.add_scalar('covariance/R2', torch.exp(model.covariance_params[2]), t)
+        writer.add_scalar('covariance/Q01', torch.exp(model.covariance_params[3]), t)
+        writer.add_scalar('covariance/Q23', torch.exp(model.covariance_params[4]), t)
+        writer.add_scalar('covariance/Q4', torch.exp(model.covariance_params[5]), t)
+        writer.add_scalar('covariance/Q5', torch.exp(model.covariance_params[6]), t)
+        training_segment_dataset = model.prepare_dataset(training_dataset, epoch=t, writer=writer, plot=True)
+        training_index_list = range(len(training_segment_dataset))
+        loader = Data.DataLoader(training_index_list, batch_size=batch_size, shuffle=True)
+        batch_loss = []
+        for index_batch in tqdm(loader):
+            optimizer.zero_grad()
+            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, los_typ='mse')
+            if loss.requires_grad:
+                loss.backward()
+                print("loss:", loss.item())
+                print("dynamics: ", model.params.detach().cpu().numpy())
+                optimizer.step()
+                batch_loss.append(loss.detach().cpu().numpy())
+            else:
+                print("loss:", loss.item())
+                print("dynamics: ", model.params.detach().cpu().numpy())
+                batch_loss.append(loss.cpu().numpy())
+            # loss.backward()
+            # print("loss:", loss.item())
+            # print("dynamics: ", model.params.detach().cpu().numpy())
+            # optimizer.step()
+            # batch_loss.append(loss.detach().cpu().numpy())
+        training_loss = np.mean(batch_loss)
+        writer.add_scalar('loss/training_loss', training_loss, t)
+        with torch.no_grad():
+            plot_trajectory(abs(model.params), training_dataset, epoch=t, writer=writer)
+        test_segment_dataset = model.prepare_dataset(test_dataset)
+        test_index_list = range(len(test_segment_dataset))
+        test_loader = Data.DataLoader(test_index_list, batch_size=batch_size, shuffle=True)
+
+        with torch.no_grad():
+            test_batch_loss = []
+            for index_batch in tqdm(test_loader):
+                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, los_typ='mse')
+                test_batch_loss.append(loss.detach().cpu().numpy())
+            test_loss = np.mean(test_batch_loss)
+            writer.add_scalar('loss/test_loss', test_loss, t)
+    writer.close()

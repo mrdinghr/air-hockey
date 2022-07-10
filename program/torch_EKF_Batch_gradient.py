@@ -5,11 +5,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import torch.utils.data as Data
 from torch.utils.tensorboard import SummaryWriter
-device = torch.device("cuda")
-table_length = 1.948
-data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
-train_data = data_after_clean[10:15]
-test_data = data_after_clean[6:7]
+
 # test_index = np.random.randint(0, len(data_after_clean), size=2)
 # test_index = 2
 # test_data = data_after_clean[2:3]
@@ -63,7 +59,7 @@ class EKFGradient(torch.nn.Module):
         self.Q[4][4] = self.covariance_params[5]
         self.Q[5][5] = self.covariance_params[6]
         self.P = torch.eye(6, device=device) * 0.01
-        self.puck_EKF = air_hockey_EKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
+        self.puck_EKF = AirHockeyEKF(u=1 / 120., system=self.system, table=self.table, Q=self.Q, R=self.R, P=self.P)
 
     '''
     input: list of trajectories 
@@ -93,7 +89,7 @@ class EKFGradient(torch.nn.Module):
                     self.puck_EKF.update(cur_trajectory[j + 1][0:3])
                     j = j + 1
                     sign, logdet = torch.linalg.slogdet(self.puck_EKF.S)
-                    cur_point_loss = sign * torch.exp(logdet) + self.puck_EKF.y @ torch.linalg.inv(
+                    cur_point_loss = logdet + self.puck_EKF.y @ torch.linalg.inv(
                         self.puck_EKF.S) @ self.puck_EKF.y
                     # loss_list.append(cur_point_loss.clone())
                     loss_list.append(cur_point_loss)
@@ -113,6 +109,11 @@ class EKFGradient(torch.nn.Module):
 
 if __name__ == '__main__':
     # table friction, table damping, table restitution, rim friction
+    device = torch.device("cuda")
+    table_length = 1.948
+    data_after_clean = np.load('total_data_after_clean.npy', allow_pickle=True)
+    train_data = data_after_clean[10:15]
+    test_data = data_after_clean[6:7]
     init_params = torch.Tensor([0.125, 0.375, 0.675, 0.145])
     covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1])
     model = EKFGradient(init_params, covariance_params)
