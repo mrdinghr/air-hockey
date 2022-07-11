@@ -53,14 +53,15 @@ class Kalman_EKF_Gradient(torch.nn.Module):
         self.puck_EKF = AirHockeyEKF(u=1 / 120., system=self.system, Q=self.Q, R=self.R, P=self.P, device=self.device)
 
     def prepare_dataset(self, trajectory_buffer, writer=None, plot=False, epoch=0, type='EKF'):
-        if type == 'mse':
+        if type == 'EKF':
             self.construct_EKF()
             segments_dataset = []
             with torch.no_grad():
                 for trajectory_index, trajectory in enumerate(trajectory_buffer):
                     trajectory_tensor = torch.tensor(trajectory, device=self.device).float()
                     init_state = self.calculate_init_state(trajectory)
-                    EKF_state, collisions, _, _ = self.puck_EKF.kalman_filter(init_state, trajectory_tensor[1:], plot=plot,
+                    EKF_state, collisions, _, _ = self.puck_EKF.kalman_filter(init_state, trajectory_tensor[1:],
+                                                                              plot=plot,
                                                                               writer=writer,
                                                                               trajectory_index=trajectory_index,
                                                                               epoch=epoch)
@@ -82,7 +83,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                                                                                            epoch=epoch,
                                                                                            trajectory_index=trajectory_index)
                     segments_dataset.append(
-                        torch.vstack(self.construct_data_segments(smoothed_states, collisions, trajectory_index, type=type)))
+                        torch.vstack(
+                            self.construct_data_segments(smoothed_states, collisions, trajectory_index, type=type)))
             return torch.vstack(segments_dataset)
 
     def calculate_init_state(self, trajectory):
@@ -107,17 +109,23 @@ class Kalman_EKF_Gradient(torch.nn.Module):
         for j in range(len(EKF_state) - self.segment_size + 1):
             if np.any(collisions[j: j + self.segment_size]):
                 cur_state = EKF_state[j]
-                index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
+                if type == 'EKF':
+                    index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
+                elif type == 'smooth':
+                    index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
                 segment_dataset.append(torch.cat((index_tensor, cur_state)))
             else:
                 if j % (batch_size / 2) == 0:
                     cur_state = EKF_state[j]
-                    index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
+                    if type == 'EKF':
+                        index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
+                    elif type == 'smooth':
+                        index_tensor = torch.tensor([trajectory_index, j + 2], device=device)
                     segment_dataset.append(torch.cat((index_tensor, cur_state)))
         return segment_dataset
 
     def calculate_loss(self, segments_batch, measurements, loss_type='log_like', type='EKF'):
-        if type=='EKF':
+        if type == 'EKF':
             self.construct_EKF()
             total_loss = 0
             num_total_loss = 0
@@ -168,7 +176,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                         innovation_vectors2 = innovation_vectors[i][2]
                     innovation = torch.cat([innovation_vectors[i][0:2], torch.atleast_1d(innovation_vectors2)])
                     if loss_type == 'log_like':
-                        total_loss = total_loss + 0.5 * (logdet + innovation @ innovation_variance[i].inverse() @ innovation)
+                        total_loss = total_loss + 0.5 * (
+                                    logdet + innovation @ innovation_variance[i].inverse() @ innovation)
                     elif loss_type == 'mse':
                         total_loss = total_loss + 0.5 * (innovation @ innovation)
                 num_total_loss += 1
@@ -214,7 +223,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
 def load_dataset(file_name):
     total_dataset = np.load(file_name, allow_pickle=True)
     # return np.array([total_dataset[0][25:120], total_dataset[0][25:120]]), np.array([total_dataset[0][25:120], total_dataset[0][25:120]])
-    return np.array([total_dataset[3][:-5], total_dataset[3][:-5]]), total_dataset[3:4]
+    return np.array([total_dataset[3][:-5], total_dataset[3][:-5]]), np.array([total_dataset[3][:-5], total_dataset[3][:-5]])
     # 'new_total_data_after_clean.npy' forth trajectory only one collision on down wall
     # 'new_total_data_after_clean.npy' first trajectory
     # plt.scatter(total_dataset[3][:, 0], total_dataset[3][:, 1])
@@ -261,14 +270,15 @@ if __name__ == '__main__':
         writer.add_scalar('covariance/Q23', torch.exp(model.covariance_params[4]), t)
         writer.add_scalar('covariance/Q4', torch.exp(model.covariance_params[5]), t)
         writer.add_scalar('covariance/Q5', torch.exp(model.covariance_params[6]), t)
-        training_segment_dataset, coll_num, no_num = model.prepare_dataset(training_dataset, epoch=t, writer=writer,
-                                                                           plot=True, type='smooth')
+        training_segment_dataset = model.prepare_dataset(training_dataset, epoch=t, writer=writer, plot=True,
+                                                         type='smooth')
         training_index_list = range(len(training_segment_dataset))
         loader = Data.DataLoader(training_index_list, batch_size=batch_size, shuffle=True)
         batch_loss = []
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
-            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, los_typ='mse', type='EKF')
+            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, loss_type='mse',
+                                        type='EKF')
             if loss.requires_grad:
                 loss.backward()
                 print("loss:", loss.item())
@@ -288,14 +298,14 @@ if __name__ == '__main__':
         writer.add_scalar('loss/training_loss', training_loss, t)
         with torch.no_grad():
             plot_trajectory(abs(model.params), training_dataset, epoch=t, writer=writer)
-        test_segment_dataset, _, _ = model.prepare_dataset(test_dataset)
+        test_segment_dataset = model.prepare_dataset(test_dataset, type='smooth')
         test_index_list = range(len(test_segment_dataset))
         test_loader = Data.DataLoader(test_index_list, batch_size=batch_size, shuffle=True)
 
         with torch.no_grad():
             test_batch_loss = []
             for index_batch in tqdm(test_loader):
-                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, los_typ='mse')
+                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, loss_type='mse')
                 test_batch_loss.append(loss.detach().cpu().numpy())
             test_loss = np.mean(test_batch_loss)
             writer.add_scalar('loss/test_loss', test_loss, t)

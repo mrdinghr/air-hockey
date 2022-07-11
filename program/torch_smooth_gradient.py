@@ -163,7 +163,8 @@ class Kalman_Smooth_Gradient(torch.nn.Module):
 
 def load_dataset(file_name):
     total_dataset = np.load(file_name, allow_pickle=True)
-    return np.array([total_dataset[3], total_dataset[3]]), total_dataset[3:4]
+    # return np.array([total_dataset[3], total_dataset[3]]), total_dataset[3:4]
+    return np.array([total_dataset[3][:-5], total_dataset[3][:-5]]), total_dataset[3:4]
     # plt.scatter(total_dataset[3][:, 0], total_dataset[3][:, 1])
     # plt.show()
     # return total_dataset[0:int(len(total_dataset) * 0.8)], total_dataset[int(len(total_dataset) * 0.8):]
@@ -194,7 +195,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     epoch = 0
-    writer = SummaryWriter('./alldata/710test' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
+    writer = SummaryWriter('./alldata/711test' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
     for t in tqdm(range(epochs)):
         writer.add_scalar('dynamics/table damping', model.params[1], t)
         writer.add_scalar('dynamics/table friction', model.params[0], t)

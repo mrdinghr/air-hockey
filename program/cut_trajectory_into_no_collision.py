@@ -16,10 +16,15 @@ def detect_collision(trajectory):
 
         return
 
-plt.scatter(all_trajectory[3][:, 0], all_trajectory[3][:, 1])
+
+# for i in range(len(all_trajectory)):
+#     plt.figure()
+#     plt.scatter(all_trajectory[i][:, 0], all_trajectory[i][:, 1], c='b')
 # for trajecotry in all_trajectory:
 #     plt.figure()
 #     plt.scatter(trajecotry[:, 0], trajecotry[:, 1])
+plt.scatter(all_trajectory[0][:, 0], all_trajectory[0][:, 1], c='b')
+plt.scatter(all_trajectory[0][25:120, 0], all_trajectory[0][25:120, 1])
 plt.show()
 
 

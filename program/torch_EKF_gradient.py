@@ -100,7 +100,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                 segment_dataset.append(torch.cat((index_tensor, cur_state)))
                 segment_collision += 1
             else:
-                if j % (batch_size / 2) == 0:
+                if j % (batch_trajectory_size / 2) == 0:
                     cur_state = EKF_state[j]
                     index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
                     segment_dataset.append(torch.cat((index_tensor, cur_state)))
@@ -158,7 +158,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                     innovation_vectors2 = innovation_vectors[i][2]
                 innovation = torch.cat([innovation_vectors[i][0:2], torch.atleast_1d(innovation_vectors2)])
                 if los_typ == 'log_like':
-                    total_loss = total_loss + 0.5 * (logdet + innovation @ innovation_variance[i] @ innovation)
+                    total_loss = total_loss + 0.5 * (logdet + innovation @ innovation_variance[i].inverse() @ innovation)
                 elif los_typ == 'mse':
                     total_loss = total_loss + 0.5 * (innovation @ innovation)
             num_total_loss += 1
@@ -167,7 +167,9 @@ class Kalman_EKF_Gradient(torch.nn.Module):
 
 def load_dataset(file_name):
     total_dataset = np.load(file_name, allow_pickle=True)
-    return np.array([total_dataset[3][:-5], total_dataset[3][:-5]]), total_dataset[3:4]
+    return np.array([total_dataset[0][25:120], total_dataset[0][25:120]]), np.array([total_dataset[0][25:120], total_dataset[0][25:120]])
+    # 'new_total_data_after_clean.npy' forth trajectory only one collision on down wall
+    # 'new_total_data_after_clean.npy' first trajectory
     # plt.scatter(total_dataset[3][:, 0], total_dataset[3][:, 1])
     # plt.show()
     # return total_dataset[0:int(len(total_dataset) * 0.8)], total_dataset[int(len(total_dataset) * 0.8):]
@@ -187,7 +189,7 @@ if __name__ == '__main__':
     init_params = torch.Tensor([3e-3, 3e-3, 0.79968596, 0.10029725]).to(device=device)
     # init_params = init_params / torch.tensor([0.1, 0.1, 1, 1]) - 1
     # init_params = 0.5 * (torch.log(1 + init_params) - torch.log(1 - init_params))
-
+    #                                      R0, R1, R2, Q01, Q23, Q4, Q5
     covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
     # covariance_params = torch.Tensor(
     #     [0.00118112, 0.00100000, 0.00295336, 0.00392161, 0.00100000, 0.00100000, 0.00205159]).to(device=device)
@@ -199,7 +201,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     epoch = 0
-    writer = SummaryWriter('./alldata/710test' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
+    writer = SummaryWriter('./alldata/711test' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
     for t in tqdm(range(epochs)):
         writer.add_scalar('dynamics/table damping', model.params[1], t)
         writer.add_scalar('dynamics/table friction', model.params[0], t)
@@ -219,7 +221,7 @@ if __name__ == '__main__':
         batch_loss = []
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
-            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset)
+            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, los_typ='mse')
             if loss.requires_grad:
                 loss.backward()
                 print("loss:", loss.item())
@@ -246,7 +248,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             test_batch_loss = []
             for index_batch in tqdm(test_loader):
-                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset)
+                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, los_typ='mse')
                 test_batch_loss.append(loss.detach().cpu().numpy())
             test_loss = np.mean(test_batch_loss)
             writer.add_scalar('loss/test_loss', test_loss, t)

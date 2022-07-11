@@ -60,10 +60,10 @@ class AirHockeyEKF:
         self.S = self.H @ self.P @ self.H.T + self.R
         # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
-        # self.state = self.predict_state + K @ self.y
-        self.state = self.predict_state
-        # self.P = (torch.eye(6, device=self.device) - K @ self.H) @ self.P
-        self.P = self.P
+        self.state = self.predict_state + K @ self.y
+        # self.state = self.predict_state
+        self.P = (torch.eye(6, device=self.device) - K @ self.H) @ self.P
+        # self.P = self.P
 
     def refresh(self, P, Q, R):
         self.P = P

@@ -172,14 +172,14 @@ class AirHockeyTable:
                 m_jacCollision = torch.eye(6, device=device)
                 m_jacCollision[0][2] = self.m_dt
                 m_jacCollision[1][3] = self.m_dt
-                m_jacCollision[2][2] = weight * 2 / 3
+                m_jacCollision[2][2] = weight * 2 / 3 + 1 - weight
                 m_jacCollision[2][3] = (1 - weight) * (self.m_rimFriction * slideDir * (1 + self.m_e))
                 m_jacCollision[2][5] = -self.m_puckRadius * weight / 3
                 m_jacCollision[3][3] = -self.m_e
                 m_jacCollision[4][5] = self.m_dt
                 m_jacCollision[5][2] = weight * (-2 / (3 * self.m_puckRadius))
                 m_jacCollision[5][3] = (1 - weight) * (m_jacCollision[2][3] * 2 / self.m_puckRadius)
-                m_jacCollision[5][5] = weight / 3
+                m_jacCollision[5][5] = weight / 3 + 1 - weight
                 jacobian = self.m_rimGlobalTransformsInv[i] @ m_jacCollision @ self.m_rimGlobalTransforms[i]
                 if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
                     cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
