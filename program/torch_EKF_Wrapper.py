@@ -102,7 +102,7 @@ class AirHockeyEKF:
         EKF_res_collision = []
         EKF_res_update = []
         i = 0
-        j = 1
+        j = 0
         length = len(trajectory)
         while j < length - 1:
             i += 1
@@ -111,11 +111,11 @@ class AirHockeyEKF:
             EKF_res_P.append(self.P)
             EKF_res_dynamic.append(self.F)
             EKF_res_collision.append(self.has_collision)
-            if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[1][-1] <= (i + 0.5) / 120:
+            if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[0][-1] <= (i + 0.5) / 120:
                 self.update(trajectory[j + 1][0:3])
                 j += 1
                 EKF_res_update.append(1)
-            elif trajectory[j + 1][-1] - trajectory[1][-1] < (i - 0.5) / 120:
+            elif trajectory[j + 1][-1] - trajectory[0][-1] < (i - 0.5) / 120:
                 j = j + 1
                 i = i - 1
                 self.state = self.predict_state
@@ -163,8 +163,8 @@ class AirHockeyEKF:
             # if xs[5] * xp[5] < 0:
             #     xs[5] = -xs[5]
 
-            predicted_cov = jacobian_list[idx_cur] @ variance_list[idx_prev] @ jacobian_list[idx_cur].T + self.Q
-            smooth_gain = variance_list[idx_prev] @ jacobian_list[idx_cur].T @ torch.linalg.inv(predicted_cov)
+            predicted_cov = jacobian_list[idx_prev] @ variance_list[idx_prev] @ jacobian_list[idx_prev].T + self.Q
+            smooth_gain = variance_list[idx_prev] @ jacobian_list[idx_prev].T @ torch.linalg.inv(predicted_cov)
 
             xs = state_list[idx_prev] + smooth_gain @ (xs - xp_new)
             ps = variance_list[idx_prev] + smooth_gain @ (ps - predicted_cov) @ smooth_gain.T

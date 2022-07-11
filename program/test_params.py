@@ -34,7 +34,7 @@ def plot_trajectory(params, trajectories, epoch=0, writer=None):
     for trajectory_index, data_set in enumerate(trajectories):
         # trajectory_index = index  # choose which trajectory to test, current total 150 trajectories 2022.06.21
         init_state = calculate_init_state(data_set).cpu().numpy()
-        state_num = len(data_set) - 2
+        state_num = (data_set[-1, -1] - data_set[0, -1]) * 120
         table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
                                                    restitution=params[2], rimFriction=params[3], dt=1 / 120)
         system = air_hockey_baseline.SystemModel(tableDamping=params[1], tableFriction=params[0], tableLength=1.948,
@@ -102,20 +102,20 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.title('x position')
     plt.scatter(time_list, EKF_state_list[:, 0], label='EKF trajectory', c='b')
     plt.scatter(trajectory[:, 3] - trajectory[0, 3], trajectory[:, 0], label='recorded trajectory', c='g')
-    plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 0], label='Smooth trajectory', c='r')
+    plt.scatter(trajectory[1:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 0], label='Smooth trajectory', c='r')
     plt.legend()
     # position y
     plt.subplot(3, 1, 2)
     plt.title('y position')
     plt.scatter(time_list, EKF_state_list[:, 1], label='EKF trajectory', c='b')
     plt.scatter(trajectory[:, 3] - trajectory[0, 3], trajectory[:, 1], label='recorded trajectory', c='g')
-    plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 1], label='Smooth trajectory', c='r')
+    plt.scatter(trajectory[1:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 1], label='Smooth trajectory', c='r')
     plt.legend()
     plt.subplot(3, 1, 3)
     plt.title('theta')
     plt.scatter(time_list, EKF_state_list[:, 4], label='EKF trajectory', c='b')
     plt.scatter(trajectory[:, 3] - trajectory[0, 3], trajectory[:, 2], label='recorded trajectory', c='g')
-    plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 4], label='Smooth trajectory', c='r')
+    plt.scatter(trajectory[1:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 4], label='Smooth trajectory', c='r')
     plt.legend()
     if writer != None:
         writer.add_figure('trajectory_'+str(trajectory_index)+'/position', plt.gcf(), epoch)
@@ -124,19 +124,19 @@ def plot_with_state_list(EKF_state_list, smooth_state_list, trajectory, time_lis
     plt.title('x velocity')
     plt.scatter(time_list, EKF_state_list[:, 2], label='EKF trajectory', c='b')
     plt.scatter(trajectory[:-1, 3] - trajectory[0, 3], x_velocity, label='recorded trajectory', c='g')
-    plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 2], label='Smooth trajectory', c='r')
+    plt.scatter(trajectory[1:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 2], label='Smooth trajectory', c='r')
     plt.legend()
     plt.subplot(3, 1, 2)
     plt.title('y velocity')
     plt.scatter(time_list, EKF_state_list[:, 3], label='EKF trajectory', c='b')
     plt.scatter(trajectory[:-1, 3] - trajectory[0, 3], y_velocity, label='recorded trajectory', c='g')
-    plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 3], label='Smooth trajectory', c='r')
+    plt.scatter(trajectory[1:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 3], label='Smooth trajectory', c='r')
     plt.legend()
     plt.subplot(3, 1, 3)
     plt.title('rotate velocity')
     plt.scatter(time_list, EKF_state_list[:, 5], label='EKF trajectory', c='b')
     plt.scatter(trajectory[:-1, 3] - trajectory[0, 3], theta_velocity, label='recorded trajectory', c='g')
-    plt.scatter(trajectory[2:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 5], label='Smooth trajectory', c='r')
+    plt.scatter(trajectory[1:, 3] - trajectory[0, 3], smooth_state_list[-1::-1, 5], label='Smooth trajectory', c='r')
     plt.legend()
     if writer != None:
         writer.add_figure('trajectory_'+str(trajectory_index)+'/velocity', plt.gcf(), epoch)
