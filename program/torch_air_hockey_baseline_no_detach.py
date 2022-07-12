@@ -44,10 +44,10 @@ class AirHockeyTable:
         self.m_rimGlobalTransformsInv[0] = torch.linalg.inv(T_tmp)
         #   Second Rim
         T_tmp = torch.zeros((6, 6), device=device)
-        T_tmp[0][1] = -1
-        T_tmp[1][0] = 1
-        T_tmp[2][3] = -1
-        T_tmp[3][2] = 1
+        T_tmp[0][1] = 1
+        T_tmp[1][0] = -1
+        T_tmp[2][3] = 1
+        T_tmp[3][2] = -1
         T_tmp[4][4] = 1
         T_tmp[5][5] = 1
         self.m_rimGlobalTransforms[1] = T_tmp
@@ -64,10 +64,10 @@ class AirHockeyTable:
         self.m_rimGlobalTransformsInv[2] = torch.linalg.inv(T_tmp)
         #   Forth Rim
         T_tmp = torch.zeros((6, 6), device=device)
-        T_tmp[0][1] = 1
-        T_tmp[1][0] = -1
-        T_tmp[2][3] = 1
-        T_tmp[3][2] = -1
+        T_tmp[0][1] = -1
+        T_tmp[1][0] = 1
+        T_tmp[2][3] = -1
+        T_tmp[3][2] = 1
         T_tmp[4][4] = 1
         T_tmp[5][5] = 1
         self.m_rimGlobalTransforms[3] = T_tmp
