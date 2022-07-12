@@ -159,7 +159,7 @@ class AirHockeyTable:
                 #     else:
                 #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
 
-                beta = np.exp(0.001*epoch)
+                beta = np.exp(0.1*epoch)
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
                 weight = torch.sigmoid(beta * weight)
@@ -279,5 +279,5 @@ class SystemModel:
     #         return True
     #     return False
 
-    def apply_collision(self, state):
-        return self.table.apply_collision(state)
+    def apply_collision(self, state, epoch=0):
+        return self.table.apply_collision(state, epoch=epoch)

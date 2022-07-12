@@ -81,10 +81,10 @@ class AirHockeyTable:
         vel = state[2:4]
         jacobian = np.eye(6)
         score = False
-        if abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
-            return False, state, jacobian, True
-        elif abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
-            return False, state, jacobian, True
+        # if abs(p[1]) < self.m_goalWidth / 2 and p[0] < self.m_boundary[0][0] + self.m_puckRadius:
+        #     return True, state, jacobian, True
+        # elif abs(p[1]) < self.m_goalWidth / 2 and p[0] > self.m_boundary[0][2] - self.m_puckRadius:
+        #     return True, state, jacobian, True
         u = vel * self.m_dt
         i = 0
         for i in range(self.m_boundary.shape[0]):

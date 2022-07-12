@@ -68,8 +68,8 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num):
     time_list = [1/120]
     for i in range(state_num):
         has_collision, state, jacobian, score = table.apply_collision(state)
-        if score:
-            break
+        # if score:
+        #     break
         if not has_collision:
             state = system.f(state, u)
         resX.append(state[0])

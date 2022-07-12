@@ -33,8 +33,9 @@ class AirHockeyEKF:
         self.state = state
         self.P = torch.eye(6, device=self.device).float() * 0.01
 
-    def predict(self):
-        self.has_collision, self.predict_state, jacobian, self.score = self.system.apply_collision(self.state)
+    def predict(self, epoch=0):
+        self.has_collision, self.predict_state, jacobian, self.score = self.system.apply_collision(self.state,
+                                                                                                   epoch=epoch)
         # else:
         if self.has_collision:
             self.F = jacobian.clone()
@@ -82,9 +83,10 @@ class AirHockeyEKF:
 
     def smooth(self, init_state, trajectory, plot=False, writer=None, epoch=0, trajectory_index=None):
         state_list, variance_list, jacobian_list, collision_list, update_list = self.forward_pass(init_state,
-                                                                                                  trajectory)
+                                                                                                  trajectory,
+                                                                                                  epoch=epoch)
         smoothed_state_list, smoothed_variance_list = self.backward_pass(state_list, variance_list, jacobian_list,
-                                                                         update_list)
+                                                                         update_list, epoch=epoch)
         if plot:
             time_list = [i / 120 for i in range(len(state_list))]
             plot_with_state_list(state_list, smoothed_state_list, trajectory, time_list, writer=writer, epoch=epoch,
@@ -94,7 +96,7 @@ class AirHockeyEKF:
         collision_list = collision_list[::-1]
         return smoothed_state_list, smoothed_variance_list, collision_list
 
-    def forward_pass(self, init_state, trajectory):
+    def forward_pass(self, init_state, trajectory, epoch=0):
         self.initialize(init_state)
         EKF_res_state = [init_state]
         EKF_res_P = []
@@ -106,7 +108,7 @@ class AirHockeyEKF:
         length = len(trajectory)
         while j < length - 1:
             i += 1
-            self.predict()
+            self.predict(epoch=epoch)
             EKF_res_state.append(self.predict_state)
             EKF_res_P.append(self.P)
             EKF_res_dynamic.append(self.F)
@@ -126,7 +128,7 @@ class AirHockeyEKF:
         return EKF_res_state, EKF_res_P, EKF_res_dynamic, EKF_res_collision, EKF_res_update
 
     def backward_pass(self, state_list, variance_list, jacobian_list, update_list,
-                      loss_type="log_lik"):
+                      loss_type="log_lik", epoch=0):
         smoothed_state_list = [state_list[-1]]
         smoothed_variance_list = [self.H @ variance_list[-1] @ self.H.T + self.R]
 
@@ -138,7 +140,7 @@ class AirHockeyEKF:
             idx_cur = - j - 1
             idx_prev = - j - 2
 
-            has_collision, predict_state, _, _ = self.system.apply_collision(state_list[idx_prev])
+            has_collision, predict_state, _, _ = self.system.apply_collision(state_list[idx_prev], epoch=epoch)
             if not has_collision:
                 xp = self.system.f(state_list[idx_prev], self.u)
             else:
@@ -187,7 +189,7 @@ class AirHockeyEKF:
         while j < length - 1:
             i += 1
             time_EKF.append(i / 120)
-            self.predict()
+            self.predict(epoch=epoch)
 
             if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[0][-1] <= (i + 0.5) / 120:
                 self.update(trajectory[j + 1][0:3])
@@ -204,10 +206,9 @@ class AirHockeyEKF:
             else:
                 self.state = self.predict_state
         if plot:
-            EKF_plot_with_state_list(EKF_res_state, trajectory, writer=writer, trajectory_index=trajectory_index,epoch=epoch)
+            EKF_plot_with_state_list(EKF_res_state, trajectory, writer=writer, trajectory_index=trajectory_index,
+                                     epoch=epoch)
         return EKF_res_state, EKF_res_collision, innovation_vector, innovation_variance
-
-
 
 
 if __name__ == '__main__':
