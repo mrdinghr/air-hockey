@@ -101,7 +101,7 @@ class AirHockeyTable:
             s = cross2d(v, w) / denominator
             # r = cross2d(u.detach(), w) / denominator
             r = cross2d(u, w) / denominator
-            if cross2d(w, v) < 0 or (s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
+            if (self.m_boundary[2][:2] - torch.abs(pos) > 0).all() and (s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
                 state_pre = pos + s * u
                 theta_pre = angle + s * ang_vel * self.m_dt
 
@@ -169,18 +169,31 @@ class AirHockeyTable:
                 vnNextScalar = -self.m_e * vnSCalar
                 cur_state5 = weight * (ang_vel / 3 - 2 * vtScalar / (3 * self.m_puckRadius)) + (1 - weight) * (
                         ang_vel + 2 * self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar / self.m_puckRadius)
-                m_jacCollision = torch.eye(6, device=device)
-                m_jacCollision[0][2] = self.m_dt
-                m_jacCollision[1][3] = self.m_dt
-                m_jacCollision[2][2] = weight * 2 / 3 + 1 - weight
-                m_jacCollision[2][3] = (1 - weight) * (self.m_rimFriction * slideDir * (1 + self.m_e))
-                m_jacCollision[2][5] = -self.m_puckRadius * weight / 3
-                m_jacCollision[3][3] = -self.m_e
-                m_jacCollision[4][5] = self.m_dt
-                m_jacCollision[5][2] = weight * (-2 / (3 * self.m_puckRadius))
-                m_jacCollision[5][3] = (1 - weight) * (m_jacCollision[2][3] * 2 / self.m_puckRadius)
-                m_jacCollision[5][5] = weight / 3 + 1 - weight
-                jacobian = self.m_rimGlobalTransformsInv[i] @ m_jacCollision @ self.m_rimGlobalTransforms[i]
+                m_jacCollision_mode_no_slide = torch.eye(6, device=device)
+                m_jacCollision_mode_no_slide[2][2] = 2 / 3
+                m_jacCollision_mode_no_slide[2][5] = -self.m_puckRadius / 3
+                m_jacCollision_mode_no_slide[3][3] = -self.m_e
+                m_jacCollision_mode_no_slide[5][2] = -2 / (3 * self.m_puckRadius)
+                m_jacCollision_mode_no_slide[5][5] = 1 / 3
+                m_jacCollision_mode_no_slide[0][2] = self.m_dt
+                m_jacCollision_mode_no_slide[1][3] = self.m_dt
+                m_jacCollision_mode_no_slide[4][5] = self.m_dt
+                m_jacCollision_mode_slide = torch.eye(6, device=device)
+                m_jacCollision_mode_slide[0][2] = self.m_dt
+                m_jacCollision_mode_slide[1][3] = self.m_dt
+                m_jacCollision_mode_slide[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
+                m_jacCollision_mode_slide[3][3] = -self.m_e
+                m_jacCollision_mode_slide[4][5] = self.m_dt
+                m_jacCollision_mode_slide[5][3] = self.m_jacCollision[2][3] * 2 / self.m_puckRadius
+                m_jacCollision = weight*m_jacCollision_mode_no_slide + (1 - weight)*m_jacCollision_mode_slide
+
+                m_jacCollision_correct = torch.stack([s * m_jacCollision[0] + (1 - s) * m_jacCollision[2],
+                                                      s * m_jacCollision[1] + (1 - s) * m_jacCollision[3],
+                                                      m_jacCollision[2], m_jacCollision[3],
+                                                      s * m_jacCollision[4] + (1 - s) * m_jacCollision[5],
+                                                      m_jacCollision[5]])
+
+                jacobian = self.m_rimGlobalTransformsInv[i] @ m_jacCollision_correct @ self.m_rimGlobalTransforms[i]
                 if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
                     cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
                 elif theta_pre + (1 - s) * cur_state5 * self.m_dt < -pi:

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 all_trajectory = np.load('new_total_data_after_clean.npy', allow_pickle=True)
-
+all_trajectory_part = np.load('new_total_data_after_clean_part.npy', allow_pickle=True)
 
 def has_collision(pre, cur, next):
     if (next[0] - cur[0])*(cur[0] - pre[0]) < 0 or (next[1] - cur[1])*(cur[1] - pre[1]) < 0:
@@ -20,11 +20,18 @@ def detect_collision(trajectory):
 # for i in range(len(all_trajectory)):
 #     plt.figure()
 #     plt.scatter(all_trajectory[i][:, 0], all_trajectory[i][:, 1], c='b')
-for trajecotry in all_trajectory:
-    plt.figure()
-    plt.scatter(trajecotry[:, 0], trajecotry[:, 1])
-# plt.scatter(all_trajectory[6][:, 0], all_trajectory[6][:, 1], c='b')
-# plt.scatter(all_trajectory[5][250:320, 0], all_trajectory[5][250:320, 1])
+# for trajecotry in all_trajectory:
+#     plt.figure()
+#     plt.scatter(trajecotry[:, 0], trajecotry[:, 1])
+# all_trajectory[2] = all_trajectory[2][50:]
+# np.save('new_total_data_after_clean_part', all_trajectory)
+# plt.scatter(all_trajectory[2][:, 0], all_trajectory[2][:, 1], c='b')
+# plt.scatter(all_trajectory[2][50:, 0], all_trajectory[2][50:, 1])
+list = [52, 237, 17, 162, 202, 152, 122, 102, 57, 67]
+plt.scatter(all_trajectory_part[2][:, 0], all_trajectory_part[2][:, 1], c='r')
+for i in range(len(list)):
+    plt.scatter(all_trajectory_part[2][list[i]:list[i]+10, 0], all_trajectory_part[2][list[i]:list[i]+10, 1], label=str(i))
+plt.legend()
 plt.show()
 
 

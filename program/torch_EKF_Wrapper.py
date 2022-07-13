@@ -99,10 +99,10 @@ class AirHockeyEKF:
     def forward_pass(self, init_state, trajectory, epoch=0):
         self.initialize(init_state)
         EKF_res_state = [init_state]
-        EKF_res_P = []
-        EKF_res_dynamic = []
-        EKF_res_collision = []
-        EKF_res_update = []
+        EKF_res_P = [self.P]
+        EKF_res_dynamic = [self.system.F]
+        EKF_res_collision = [False]
+        EKF_res_update = [False]
         i = 0
         j = 0
         length = len(trajectory)
@@ -127,8 +127,7 @@ class AirHockeyEKF:
                 EKF_res_update.append(False)
         return EKF_res_state, EKF_res_P, EKF_res_dynamic, EKF_res_collision, EKF_res_update
 
-    def backward_pass(self, state_list, variance_list, jacobian_list, update_list,
-                      loss_type="log_lik", epoch=0):
+    def backward_pass(self, state_list, variance_list, jacobian_list, update_list, epoch=0):
         smoothed_state_list = [state_list[-1]]
         smoothed_variance_list = [self.H @ variance_list[-1] @ self.H.T + self.R]
 
@@ -136,7 +135,7 @@ class AirHockeyEKF:
         ps = variance_list[-1]
         time = len(state_list)
 
-        for j in range(time - 2):
+        for j in range(time - 1):
             idx_cur = - j - 1
             idx_prev = - j - 2
 
@@ -173,15 +172,17 @@ class AirHockeyEKF:
             if update_list[idx_prev] > 0:
                 smoothed_state_list.append(xs)
                 smoothed_variance_list.append(self.H @ ps @ self.H.T + self.R)
+        smoothed_state_list.append(state_list[0])
+        smoothed_variance_list.append(self.H @ variance_list[0] @ self.H.T + self.R)
         return smoothed_state_list, smoothed_variance_list
 
     def kalman_filter(self, init_state, trajectory, plot=False, writer=None, trajectory_index=None, epoch=0):
         self.initialize(init_state)
         EKF_res_state = [init_state.clone()]
-        EKF_res_P = []
-        innovation_vector = []
-        innovation_variance = []
-        EKF_res_collision = []
+        EKF_res_P = [self.P]
+        innovation_vector = [torch.zeros(3, device=self.device)]
+        innovation_variance = [self.H@self.P@self.H.T + self.R]
+        EKF_res_collision = [False]
         i = 0
         j = 0
         length = len(trajectory)
