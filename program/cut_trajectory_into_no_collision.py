@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
+
 all_trajectory = np.load('new_total_data_after_clean.npy', allow_pickle=True)
 all_trajectory_part = np.load('new_total_data_after_clean_part.npy', allow_pickle=True)
 
+
 def has_collision(pre, cur, next):
-    if (next[0] - cur[0])*(cur[0] - pre[0]) < 0 or (next[1] - cur[1])*(cur[1] - pre[1]) < 0:
+    if (next[0] - cur[0]) * (cur[0] - pre[0]) < 0 or (next[1] - cur[1]) * (cur[1] - pre[1]) < 0:
         return True
     return False
 
@@ -13,9 +15,29 @@ def detect_collision(trajectory):
     trajectory_batch_with_one_collision = []
     collision = False
     for i in range(len(trajectory) - 2):
-
         return
 
+
+tableLength = 1.948
+tableWidth = 1.038
+puckRadius = 0.03165
+v = 3
+all_trajectory_part_no_collision = []
+for trajectory in all_trajectory_part:
+    cur_trajectory = []
+    for j in range(len(trajectory)):
+        if trajectory[j][0] < 0 + puckRadius + v / 120 or trajectory[j][0] > tableLength - puckRadius - v / 120 or \
+                trajectory[j][1] < -tableWidth / 2 + puckRadius + v / 120 or trajectory[j][1] > tableWidth / 2 - puckRadius - v / 120:
+            continue
+        cur_trajectory.append(trajectory[j])
+    all_trajectory_part_no_collision.append(np.array(cur_trajectory))
+# all_trajectory_part_no_collision = np.vstack(all_trajectory_part_no_collision)
+np.save('new_total_data_no_collision', all_trajectory_part_no_collision)
+for i in range(len(all_trajectory_part_no_collision)):
+    plt.figure()
+    plt.scatter(all_trajectory_part_no_collision[i][:, 0], all_trajectory_part_no_collision[i][:, 1], c='b')
+    plt.scatter(all_trajectory_part[i][:, 0], all_trajectory_part[i][:, 1], c='r', alpha=0.2)
+plt.show()
 
 # for i in range(len(all_trajectory)):
 #     plt.figure()
@@ -27,12 +49,12 @@ def detect_collision(trajectory):
 # np.save('new_total_data_after_clean_part', all_trajectory)
 # plt.scatter(all_trajectory[2][:, 0], all_trajectory[2][:, 1], c='b')
 # plt.scatter(all_trajectory[2][50:, 0], all_trajectory[2][50:, 1])
-list = [52, 237, 17, 162, 202, 152, 122, 102, 57, 67]
-plt.scatter(all_trajectory_part[2][:, 0], all_trajectory_part[2][:, 1], c='r')
-for i in range(len(list)):
-    plt.scatter(all_trajectory_part[2][list[i]:list[i]+10, 0], all_trajectory_part[2][list[i]:list[i]+10, 1], label=str(i))
-plt.legend()
-plt.show()
+# list = [52, 237, 17, 162, 202, 152, 122, 102, 57, 67]
+# plt.scatter(all_trajectory_part[2][:, 0], all_trajectory_part[2][:, 1], c='r')
+# for i in range(len(list)):
+#     plt.scatter(all_trajectory_part[2][list[i]:list[i]+10, 0], all_trajectory_part[2][list[i]:list[i]+10, 1], label=str(i))
+# plt.legend()
+# plt.show()
 
 
 # cut trajectory into no collision part
@@ -49,4 +71,3 @@ plt.show()
 #     print(len(trajectory_after_cut[i]))
 # # plt.show()
 # np.save('new_trajectory_after_cut', trajectory_after_cut)
-

@@ -1,4 +1,6 @@
 import datetime
+
+import matplotlib.pyplot as plt
 import numpy as np
 import torch.utils.data as Data
 from torch.utils.tensorboard import SummaryWriter
@@ -234,7 +236,7 @@ def load_dataset(file_name):
 
 if __name__ == '__main__':
     device = torch.device("cuda")
-    file_name = 'new_total_data_after_clean_part.npy'
+    file_name = 'new_total_data_no_collision.npy'
     torch.manual_seed(0)
     lr = 1e-3
     batch_size = 10
@@ -244,7 +246,7 @@ if __name__ == '__main__':
     training_dataset, test_dataset = load_dataset(file_name)
 
     # table friction, table damping, table restitution, rim friction
-    init_params = torch.Tensor([3e-3, 3e-3, 0.79968596, 0.10029725]).to(device=device)
+    init_params = torch.Tensor([0.1, 0.1, 0.79968596, 0.10029725]).to(device=device)
     # init_params = init_params / torch.tensor([0.1, 0.1, 1, 1]) - 1
     # init_params = 0.5 * (torch.log(1 + init_params) - torch.log(1 - init_params))
     #                                      R0, R1, R2, Q01, Q23, Q4, Q5
@@ -279,7 +281,7 @@ if __name__ == '__main__':
         batch_loss = []
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
-            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, type='EKF', epoch=t)
+            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, type='smooth', epoch=t)
             if loss.requires_grad:
                 loss.backward()
                 print("loss:", loss.item())
@@ -306,7 +308,7 @@ if __name__ == '__main__':
         with torch.no_grad():
             test_batch_loss = []
             for index_batch in tqdm(test_loader):
-                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, type='EKF', epoch=t)
+                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, type='smooth', epoch=t)
                 test_batch_loss.append(loss.detach().cpu().numpy())
             test_loss = np.mean(test_batch_loss)
             writer.add_scalar('loss/test_loss', test_loss, t)
