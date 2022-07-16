@@ -76,5 +76,5 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num):
         resY.append(state[1])
         res_state.append(state)
         time_list.append((i+2)/120)
-    plt.scatter(resX, resY, alpha=0.1, c='b', label='predict state by params')
+    plt.scatter(resX, resY, alpha=0.1, c='b', label='predict state by params', s=2)
     return res_state, time_list

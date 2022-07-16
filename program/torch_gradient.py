@@ -110,12 +110,16 @@ class Kalman_EKF_Gradient(torch.nn.Module):
     def construct_data_segments(self, EKF_state, collisions, trajectory_index):
         segment_dataset = []
         for j in range(len(EKF_state) - self.segment_size + 1):
-            if np.any(collisions[j: j + self.segment_size]):
+            if np.any(collisions[j+3: j + self.segment_size]):
+                # if np.any(collisions[j:j + 3]):
+                #     continue
                 cur_state = EKF_state[j]
                 index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
                 segment_dataset.append(torch.cat((index_tensor, cur_state)))
             else:
                 if j % (batch_size / 2) == 0:
+                    # if np.any(collisions[j:j+3]):
+                    #     continue
                     cur_state = EKF_state[j]
                     index_tensor = torch.tensor([trajectory_index, j + 1], device=device)
                     segment_dataset.append(torch.cat((index_tensor, cur_state)))
@@ -192,16 +196,16 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                     device=self.device).float()
                 smoothed_state_list, smoothed_variance_list, _ = self.puck_EKF.smooth(point[2:], segment_measurment,
                                                                                       epoch=epoch)
-                smoothed_state_tensor = torch.stack(smoothed_state_list)
-                smoothed_variance_tensor = torch.stack(smoothed_variance_list)
+                smoothed_state_tensor = torch.stack(smoothed_state_list[1:])
+                smoothed_variance_tensor = torch.stack(smoothed_variance_list[1:])
 
-                innovation_xy = segment_measurment[:, :2] - smoothed_state_tensor[:, :2]
-                innovation_angle = segment_measurment[:, 2] - smoothed_state_tensor[:, 4]
+                innovation_xy = segment_measurment[1:, :2] - smoothed_state_tensor[:, :2]
+                innovation_angle = segment_measurment[1:, 2] - smoothed_state_tensor[:, 4]
                 sign, logdet = torch.linalg.slogdet(smoothed_variance_tensor)
-                idx = torch.where(segment_measurment[:, 2] - smoothed_state_tensor[:, 4] > 3 / 2 * np.pi)[0]
+                idx = torch.where(segment_measurment[1:, 2] - smoothed_state_tensor[:, 4] > 3 / 2 * np.pi)[0]
                 innovation_angle[idx] = innovation_angle[idx] - 2 * np.pi
 
-                idx = torch.where(segment_measurment[:, 2] - smoothed_state_tensor[:, 4] < -3 / 2 * np.pi)[0]
+                idx = torch.where(segment_measurment[1:, 2] - smoothed_state_tensor[:, 4] < -3 / 2 * np.pi)[0]
                 innovation_angle[idx] = innovation_angle[idx] + 2 * np.pi
 
                 innovation = torch.cat([innovation_xy, innovation_angle.unsqueeze(1)], dim=1)
@@ -221,7 +225,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
 def load_dataset(file_name):
     total_dataset = np.load(file_name, allow_pickle=True)
     # total_dataset[2] = total_dataset[2][50:]
-    return total_dataset[2:3], total_dataset[2:3]
+    return total_dataset[:-1], total_dataset[:-1]
     # return total_dataset[2:3], total_dataset[2:3]
     '''
     'new_total_data_after_clean.npy' forth trajectory only one collision on down wall np.array([total_dataset[3][:-5], total_dataset[3][:-5]])

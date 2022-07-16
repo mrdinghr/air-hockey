@@ -32,11 +32,13 @@ for trajectory in all_trajectory_part:
         cur_trajectory.append(trajectory[j])
     all_trajectory_part_no_collision.append(np.array(cur_trajectory))
 # all_trajectory_part_no_collision = np.vstack(all_trajectory_part_no_collision)
-np.save('new_total_data_no_collision', all_trajectory_part_no_collision)
+# np.save('new_total_data_no_collision', all_trajectory_part_no_collision)
 for i in range(len(all_trajectory_part_no_collision)):
     plt.figure()
     plt.scatter(all_trajectory_part_no_collision[i][:, 0], all_trajectory_part_no_collision[i][:, 1], c='b')
     plt.scatter(all_trajectory_part[i][:, 0], all_trajectory_part[i][:, 1], c='r', alpha=0.2)
+# plt.scatter(all_trajectory_part[8][:200, 0], all_trajectory_part[8][:200, 1], c='r', alpha=0.5)
+# plt.scatter(all_trajectory_part[8][:, 0], all_trajectory_part[8][:, 1], c='b', alpha=0.5)
 plt.show()
 
 # for i in range(len(all_trajectory)):

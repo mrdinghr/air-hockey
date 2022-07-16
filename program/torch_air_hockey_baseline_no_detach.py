@@ -209,20 +209,23 @@ class AirHockeyTable:
                 F_post_collision[3][3] = 1 - (1-s) * self.m_dt * self.tableDamping
                 F_post_collision[4][5] = (1-s) * self.m_dt
                 F_post_collision[5][5] = 1
-                jacobian = F_pre_collision @ jacobian_global @ F_post_collision
-                if theta_pre + (1 - s) * cur_state5 * self.m_dt > pi:
-                    cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
-                elif theta_pre + (1 - s) * cur_state5 * self.m_dt < -pi:
-                    cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
+                jacobian = F_post_collision @ jacobian_global @ F_pre_collision
+                if jacobian[4] @ state > pi:
+                    cur_state[4] = jacobian[4] @ state - 2 * pi
+                    # cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt - 2 * pi
+                elif jacobian[4] @ state < -pi:
+                    # cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
+                    cur_state[4] = jacobian[4] @ state + 2 * pi
                 else:
-                    cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
+                    # cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
+                    cur_state[4] = jacobian[4] @ state
 
-                cur_state[0:2] = state_pre + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
-                # state.detach_()
-                # cur_state[2:4] = -self.m_e * vnSCalar.detach() * vecN + vtNextSCalar.detach() * vecT
-                # cur_state[5] = cur_state5.detach()
-                cur_state[2:4] = -self.m_e * vnSCalar * vecN + vtNextSCalar * vecT
-                cur_state[5] = cur_state5
+                # cur_state[0:2] = state_pre + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
+                # cur_state[2:4] = -self.m_e * vnSCalar * vecN + vtNextSCalar * vecT
+                # cur_state[5] = cur_state5
+                cur_state[0:2] = jacobian[0:2] @ state
+                cur_state[2:4] = jacobian[2:4] @ state
+                cur_state[5] = jacobian[5] @ state
                 # if theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt > pi:
                 #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt - 2*pi
                 # elif theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt < -pi:

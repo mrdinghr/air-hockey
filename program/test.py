@@ -10,8 +10,9 @@ from torch.utils.data import Dataset
 from test_params import plot_trajectory
 
 
-all_trajectory = np.load('new_total_data_after_clean.npy')
-
+# all_trajectory = np.load('new_total_data_after_clean.npy')
+a = np.array([0, 1, 2, 3])
+print(np.where(a[1:]>=1))
 
 # def has_collision(pre, cur, next):
 #     if
