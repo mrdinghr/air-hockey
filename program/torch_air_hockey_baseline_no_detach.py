@@ -11,7 +11,7 @@ def cross2d(v1, v2):
 
 
 class AirHockeyTable:
-    def __init__(self, length, width, goalWidth, puckRadius, restitution, rimFriction, dt, beta, tableDamping):
+    def __init__(self, length, width, goalWidth, puckRadius, restitution, rimFriction, dt, tableDamping):
         self.m_length = length
         self.m_width = width
         self.m_puckRadius = puckRadius
@@ -19,7 +19,6 @@ class AirHockeyTable:
         self.m_e = restitution
         self.m_rimFriction = rimFriction
         self.m_dt = dt
-        self.beta = beta
         self.tableDamping = tableDamping
 
         ref = torch.tensor([length / 2, 0.])
@@ -74,9 +73,10 @@ class AirHockeyTable:
         self.m_rimGlobalTransforms[3] = T_tmp
         self.m_rimGlobalTransformsInv[3] = T_tmp.T
 
-    def set_dynamic_parameter(self, restitution, rimFriction):
+    def set_dynamic_parameter(self, restitution, rimFriction, tableDamping):
         self.m_e = restitution
         self.m_rimFriction = rimFriction
+        self.tableDamping = tableDamping
 
     def apply_collision(self, state, epoch=0):
         pos = state[0:2]
@@ -233,12 +233,12 @@ class AirHockeyTable:
                 # else:
                 #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
                 return True, cur_state, jacobian, score
-        return False, cur_state, torch.eye(6, device=device), score
+        return False, state, torch.eye(6, device=device), score
 
 
 class SystemModel:
     def __init__(self, tableDamping, tableFriction, tableLength, tableWidth, goalWidth, puckRadius, malletRadius,
-                 tableRes, malletRes, rimFriction, dt, beta):
+                 tableRes, malletRes, rimFriction, dt):
         self.tableDamping = tableDamping
         self.tableFriction = tableFriction
         self.tableLength = tableLength
@@ -250,10 +250,9 @@ class SystemModel:
         self.malletRes = malletRes
         self.rimFriction = rimFriction
         self.dt = dt
-
         self.table = AirHockeyTable(length=tableLength, width=tableWidth, goalWidth=goalWidth,
                                     puckRadius=puckRadius, restitution=tableRes, rimFriction=rimFriction, dt=dt,
-                                    beta=beta, tableDamping=tableDamping)
+                                    tableDamping=tableDamping)
 
     @property
     def F(self):
@@ -289,6 +288,13 @@ class SystemModel:
 
     def update_jacobian(self, x, u):
         self.F = self.J_linear
+
+    def set_params(self, tableDamping, tableFriction, restitution, rimFriction):
+        self.tableDamping = tableDamping
+        self.tableFriction = tableFriction
+        self.tableRes = restitution
+        self.rimFriction = rimFriction
+        self.table.set_dynamic_parameter(tableDamping=tableDamping, rimFriction=rimFriction, restitution=restitution)
 
     def set_damping(self, damping):
         self.tableDamping = damping

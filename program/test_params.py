@@ -3,6 +3,7 @@ import torch
 from matplotlib import pyplot as plt
 from air_hockey_plot import test_params_trajectory_plot
 import air_hockey_baseline
+import torch_air_hockey_baseline_no_detach
 # from torch_EKF_Batch_gradient import calculate_init_state
 from math import pi
 device = torch.device("cuda")
@@ -27,22 +28,28 @@ def calculate_init_state(trajectory):
 
 
 # table friction, table damping, table restitution, rim friction
-def plot_trajectory(params, trajectories, epoch=0, writer=None):
+def plot_trajectory(params, trajectories, epoch=0, writer=None, set_params=False, cal=None):
     # data_set = np.load('new_total_data_after_clean.npy', allow_pickle=True)
     # data_set = np.load('example_data.npy')
-    params = params.cpu().numpy()
+    params = params.cpu()
     for trajectory_index, data_set in enumerate(trajectories):
         # trajectory_index = index  # choose which trajectory to test, current total 150 trajectories 2022.06.21
-        init_state = calculate_init_state(data_set).cpu().numpy()
+        if set_params:
+            init_state = calculate_init_state(data_set)
+        else:
+            init_state = calculate_init_state(data_set).cpu().numpy()
         state_num = int((data_set[-1, -1] - data_set[0, -1]) * 120)
-        table = air_hockey_baseline.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
-                                                   restitution=params[2], rimFriction=params[3], dt=1 / 120)
-        system = air_hockey_baseline.SystemModel(tableDamping=params[1], tableFriction=params[0], tableLength=1.948,
+        table = torch_air_hockey_baseline_no_detach.AirHockeyTable(length=1.948, width=1.038, goalWidth=0.25, puckRadius=0.03165,
+                                                   restitution=params[2], rimFriction=params[3], dt=1 / 120, tableDamping=params[1])
+        system = torch_air_hockey_baseline_no_detach.SystemModel(tableDamping=params[1], tableFriction=params[0], tableLength=1.948,
                                                  tableWidth=1.038, goalWidth=0.25, puckRadius=0.03165, malletRadius=0.04815,
                                                  tableRes=params[2], malletRes=0.04815, rimFriction=params[3], dt=1 / 120)
         plt.figure()
-        state_list, time_list = test_params_trajectory_plot(init_state=init_state, table=table, system=system, u=1/120, state_num=state_num)
-        state_list = np.vstack(state_list)
+        state_list, time_list = test_params_trajectory_plot(init_state=init_state, table=table, system=system, u=1/120, state_num=state_num, set_params=set_params, cal=cal)
+        if set_params:
+            state_list = torch.stack(state_list)
+        else:
+            state_list = np.vstack(state_list)
         # plt.figure()
         plt.scatter(data_set[:, 0], data_set[:, 1], label='record data', c='g', s=2)
         plt.scatter(data_set[0, 0], data_set[0, 1], c='r', marker='*', s=80)

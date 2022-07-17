@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 
 
 # need to set title and plt.show() after using this function
@@ -59,22 +60,34 @@ def trajectory_plot(table, system, u, state, x_var, y_var, dx_var, dy_var, theta
     return resx, resy
 
 
-def test_params_trajectory_plot(init_state, table, system, u, state_num):
+def test_params_trajectory_plot(init_state, table, system, u, state_num, set_params=False, cal=None):
     table_plot(table)
     resX = []
     resY = []
-    res_state = [init_state]
+    if set_params:
+        res_state = [init_state.cpu()]
+    else:
+        res_state = [init_state]
     state = init_state
     time_list = [1/120]
     for i in range(state_num):
+        if set_params:
+            params = cal.cal_params(torch.stack([state[0], state[1], state[4]]))
+            system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
+                                   rimFriction=params[3])
         has_collision, state, jacobian, score = table.apply_collision(state)
         # if score:
         #     break
         if not has_collision:
             state = system.f(state, u)
-        resX.append(state[0])
-        resY.append(state[1])
-        res_state.append(state)
+        if set_params:
+            resX.append(state[0].cpu())
+            resY.append(state[1].cpu())
+            res_state.append(state.cpu())
+        else:
+            resX.append(state[0])
+            resY.append(state[1])
+            res_state.append(state)
         time_list.append((i+2)/120)
     plt.scatter(resX, resY, alpha=0.1, c='b', label='predict state by params', s=2)
     return res_state, time_list
