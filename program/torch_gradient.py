@@ -234,7 +234,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
 def load_dataset(file_name):
     total_dataset = np.load(file_name, allow_pickle=True)
     # total_dataset[2] = total_dataset[2][50:]
-    return total_dataset[0:1], total_dataset[0:1]
+    return total_dataset[6:7], total_dataset[6:7]
     # return total_dataset[2:3], total_dataset[2:3]
     '''
     'new_total_data_after_clean.npy' forth trajectory only one collision on down wall np.array([total_dataset[3][:-5], total_dataset[3][:-5]])

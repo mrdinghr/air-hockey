@@ -37,7 +37,6 @@ class AirHockeyEKF:
     def predict(self, epoch=0):
         self.has_collision, self.predict_state, jacobian, self.score = self.system.apply_collision(self.state,
                                                                                                    epoch=epoch)
-        # else:
         if self.has_collision:
             self.F = jacobian.clone()
         else:
@@ -114,7 +113,7 @@ class AirHockeyEKF:
         while j < length - 1:
             i += 1
             if set_params:
-                params = cal.cal_params(trajectory[j][0:3])
+                params = cal.cal_params(trajectory[j][0:2])
                 self.system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
                                        rimFriction=params[3])
             self.predict(epoch=epoch)
@@ -149,7 +148,7 @@ class AirHockeyEKF:
             idx_prev = - j - 2
             if set_params:
                 params = cal.cal_params(
-                    torch.stack([state_list[idx_prev][0], state_list[idx_prev][1], state_list[idx_prev][4]]))
+                    torch.stack([state_list[idx_prev][0], state_list[idx_prev][1]]))
                 self.system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
                                        rimFriction=params[3])
             has_collision, predict_state, _, _ = self.system.apply_collision(state_list[idx_prev], epoch=epoch)
@@ -205,7 +204,7 @@ class AirHockeyEKF:
             i += 1
             time_EKF.append(i / 120)
             if set_params:
-                params = cal.cal_params(torch.stack([self.state[0], self.state[1], self.state[4]]))
+                params = cal.cal_params(torch.stack([self.state[0], self.state[1]]))
                 self.system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
                                        rimFriction=params[3])
             self.predict(epoch=epoch)

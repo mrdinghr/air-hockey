@@ -72,7 +72,7 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, set_par
     time_list = [1/120]
     for i in range(state_num):
         if set_params:
-            params = cal.cal_params(torch.stack([state[0], state[1], state[4]]))
+            params = cal.cal_params(torch.stack([state[0], state[1]]))
             system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
                                    rimFriction=params[3])
         has_collision, state, jacobian, score = table.apply_collision(state)

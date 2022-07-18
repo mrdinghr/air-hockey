@@ -19,40 +19,42 @@ torch.set_printoptions(threshold=torch.inf)
 class state_dependent_params(torch.nn.Module):
     def __init__(self):
         super(state_dependent_params, self).__init__()
-        self.fc1 = torch.nn.Linear(3, 64)
+        self.fc1 = torch.nn.Linear(2, 64)
         self.fc2 = torch.nn.Linear(64, 64)
         self.fc3 = torch.nn.Linear(64, 4)
 
     def cal_params(self, state):
-        params = self.fc1(state)
-        params = torch.nn.functional.relu(params)
-        params = self.fc2(params)
-        params = torch.nn.functional.relu(params)
-        params = self.fc3(params)
-        params = torch.nn.functional.relu(params)
-        params = torch.sigmoid(params)
-        return params
+        output = self.fc1(state)
+        output = torch.nn.functional.relu(output)
+        output = self.fc2(output)
+        output = torch.nn.functional.relu(output)
+        output = self.fc3(output)
+        # output = torch.nn.functional.relu(output)
+        output = torch.sigmoid(output)
+        return output
 
 
 if __name__ == '__main__':
-    file_name = 'new_total_data_no_collision.npy'
+    file_name = 'new_total_data_after_clean_part.npy'
     training_dataset, test_dataset = load_dataset(file_name)
     torch.manual_seed(0)
     device = torch.device("cuda")
     lr = 1e-3
     batch_size = 10
     batch_trajectory_size = 10
-    epochs = 200
+    epochs = 2000
     cal = state_dependent_params()
     cal.to(device)
-    init_params = cal.cal_params(torch.tensor([0., 0., 0.], device=device))
+    # table friction, table damping, table restitution, rim friction
+    init_params = cal.cal_params(torch.tensor([0., 0.], device=device))
+    # best_params = torch.tensor([0.01, 0.1, 0.8, 0.15], device=device)
     covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
     model = Kalman_EKF_Gradient(init_params, covariance_params, segment_size=batch_trajectory_size, device=device)
     optimizer = torch.optim.Adam(cal.parameters(), lr=lr)
     epoch = 0
-    writer = SummaryWriter('./alldata/717nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
+    writer = SummaryWriter('./alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
     for t in tqdm(range(epochs)):
-        params = cal.cal_params(torch.tensor([0., 0., 0.], device=device))
+        params = cal.cal_params(torch.tensor([0., 0.], device=device))
         writer.add_scalar('dynamics/table damping', params[1], t)
         writer.add_scalar('dynamics/table friction', params[0], t)
         writer.add_scalar('dynamics/table restitution', params[2], t)

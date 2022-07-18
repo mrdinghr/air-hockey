@@ -102,7 +102,9 @@ class AirHockeyTable:
             s = cross2d(v, w) / denominator
             # r = cross2d(u.detach(), w) / denominator
             r = cross2d(u, w) / denominator
-            if (self.m_boundary[2][:2] - torch.abs(pos) > 0).all() and (s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
+            if (self.m_boundary[2][:2] - pos > 0).all() and (
+                    self.m_boundary[0][:2] - pos < 0).all() and (
+                    s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
                 state_pre = pos + s * u
                 theta_pre = angle + s * ang_vel * self.m_dt
 
@@ -160,7 +162,7 @@ class AirHockeyTable:
                 #     else:
                 #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
 
-                beta = 0.05*epoch + 1
+                beta = 0.05 * epoch + 1
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
                 weight = torch.sigmoid(beta * weight)
@@ -187,7 +189,7 @@ class AirHockeyTable:
                 m_jacCollision_mode_slide[3][3] = -self.m_e
                 # m_jacCollision_mode_slide[4][5] = self.m_dt
                 m_jacCollision_mode_slide[5][3] = m_jacCollision_mode_slide[2][3] * 2 / self.m_puckRadius
-                m_jacCollision = weight*m_jacCollision_mode_no_slide + (1 - weight)*m_jacCollision_mode_slide
+                m_jacCollision = weight * m_jacCollision_mode_no_slide + (1 - weight) * m_jacCollision_mode_slide
                 # m_jacCollision_correct = torch.stack([s * m_jacCollision[0] + (1 - s) * m_jacCollision[2],
                 #                                       s * m_jacCollision[1] + (1 - s) * m_jacCollision[3],
                 #                                       m_jacCollision[2], m_jacCollision[3],
@@ -196,18 +198,18 @@ class AirHockeyTable:
                 jacobian_global = self.m_rimGlobalTransformsInv[i] @ m_jacCollision @ self.m_rimGlobalTransforms[i]
 
                 F_pre_collision = torch.eye(6, device=device)
-                F_pre_collision[0][2] = s*self.m_dt
-                F_pre_collision[1][3] = s*self.m_dt
-                F_pre_collision[2][2] = 1 - s*self.m_dt*self.tableDamping
-                F_pre_collision[3][3] = 1 - s*self.m_dt*self.tableDamping
-                F_pre_collision[4][5] = s*self.m_dt
+                F_pre_collision[0][2] = s * self.m_dt
+                F_pre_collision[1][3] = s * self.m_dt
+                F_pre_collision[2][2] = 1 - s * self.m_dt * self.tableDamping
+                F_pre_collision[3][3] = 1 - s * self.m_dt * self.tableDamping
+                F_pre_collision[4][5] = s * self.m_dt
                 F_pre_collision[5][5] = 1
                 F_post_collision = torch.eye(6, device=device)
-                F_post_collision[0][2] = (1-s) * self.m_dt
-                F_post_collision[1][3] = (1-s) * self.m_dt
-                F_post_collision[2][2] = 1 - (1-s) * self.m_dt * self.tableDamping
-                F_post_collision[3][3] = 1 - (1-s) * self.m_dt * self.tableDamping
-                F_post_collision[4][5] = (1-s) * self.m_dt
+                F_post_collision[0][2] = (1 - s) * self.m_dt
+                F_post_collision[1][3] = (1 - s) * self.m_dt
+                F_post_collision[2][2] = 1 - (1 - s) * self.m_dt * self.tableDamping
+                F_post_collision[3][3] = 1 - (1 - s) * self.m_dt * self.tableDamping
+                F_post_collision[4][5] = (1 - s) * self.m_dt
                 F_post_collision[5][5] = 1
                 jacobian = F_post_collision @ jacobian_global @ F_pre_collision
                 if jacobian[4] @ state > pi:
@@ -311,6 +313,7 @@ class SystemModel:
                 measurement[0] > self.tableLength - self.puckRadius + 0.01:
             return True
         return False
+
     # def is_outside_boundary(self,state):
     #     if (abs(state[1]) > self.tableWidth / 2 - self.puckRadius + 0.01) or state[0] < -0.01 or \
     #             state[0] > self.tableLength - self.puckRadius + 0.01:
