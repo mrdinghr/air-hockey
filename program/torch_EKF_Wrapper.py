@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 from test_params import plot_with_state_list
 from test_params import EKF_plot_with_state_list
-
+torch.set_printoptions(threshold=torch.inf)
 
 class AirHockeyEKF:
     def __init__(self, u, system, Q, R, P, device):
@@ -44,12 +44,12 @@ class AirHockeyEKF:
             self.predict_state = self.system.f(self.state, self.u)
 
         self.P = self.F @ self.P @ self.F.T + self.Q
-        if self.score or self.score_time != 0:
-            self.score_time += 1
-            # self.predict_state = self.state + 0 * self.system.tableDamping
-            self.P = self.P + self.Q_score
-            if self.score_time == 5:
-                self.score_time = 0
+        # if self.score or self.score_time != 0:
+        #     self.score_time += 1
+        #     # self.predict_state = self.state + 0 * self.system.tableDamping
+        #     self.P = self.P + self.Q_score
+        #     if self.score_time == 5:
+        #         self.score_time = 0
 
     def update(self, measure):
         # measurement residual
@@ -113,7 +113,7 @@ class AirHockeyEKF:
         while j < length - 1:
             i += 1
             if set_params:
-                params = cal.cal_params(trajectory[j][0:2])
+                params = cal.cal_params(self.state[0:2])
                 self.system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
                                        rimFriction=params[3])
             self.predict(epoch=epoch)

@@ -172,6 +172,8 @@ class AirHockeyTable:
                 vnNextScalar = -self.m_e * vnSCalar
                 cur_state5 = weight * (ang_vel / 3 - 2 * vtScalar / (3 * self.m_puckRadius)) + (1 - weight) * (
                         ang_vel + 2 * self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar / self.m_puckRadius)
+                # if 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
+                #     vtScalar + self.m_puckRadius * ang_vel) > 0:
 
                 m_jacCollision_mode_no_slide = torch.eye(6, device=device)
                 m_jacCollision_mode_no_slide[2][2] = 2 / 3
@@ -179,9 +181,11 @@ class AirHockeyTable:
                 m_jacCollision_mode_no_slide[3][3] = -self.m_e
                 m_jacCollision_mode_no_slide[5][2] = -2 / (3 * self.m_puckRadius)
                 m_jacCollision_mode_no_slide[5][5] = 1 / 3
+                    # m_jacCollision = m_jacCollision_mode_no_slide
                 # m_jacCollision_mode_no_slide[0][2] = self.m_dt
                 # m_jacCollision_mode_no_slide[1][3] = self.m_dt
                 # m_jacCollision_mode_no_slide[4][5] = self.m_dt
+                # else:
                 m_jacCollision_mode_slide = torch.eye(6, device=device)
                 # m_jacCollision_mode_slide[0][2] = self.m_dt
                 # m_jacCollision_mode_slide[1][3] = self.m_dt
@@ -189,12 +193,8 @@ class AirHockeyTable:
                 m_jacCollision_mode_slide[3][3] = -self.m_e
                 # m_jacCollision_mode_slide[4][5] = self.m_dt
                 m_jacCollision_mode_slide[5][3] = m_jacCollision_mode_slide[2][3] * 2 / self.m_puckRadius
+                    # m_jacCollision = m_jacCollision_mode_slide
                 m_jacCollision = weight * m_jacCollision_mode_no_slide + (1 - weight) * m_jacCollision_mode_slide
-                # m_jacCollision_correct = torch.stack([s * m_jacCollision[0] + (1 - s) * m_jacCollision[2],
-                #                                       s * m_jacCollision[1] + (1 - s) * m_jacCollision[3],
-                #                                       m_jacCollision[2], m_jacCollision[3],
-                #                                       s * m_jacCollision[4] + (1 - s) * m_jacCollision[5],
-                #                                       m_jacCollision[5]])
                 jacobian_global = self.m_rimGlobalTransformsInv[i] @ m_jacCollision @ self.m_rimGlobalTransforms[i]
 
                 F_pre_collision = torch.eye(6, device=device)
@@ -279,13 +279,14 @@ class SystemModel:
             angle = angle - pi * 2
         elif angle < -pi:
             angle = angle + pi * 2
-
+        # vel = vel_prev - u * self.tableDamping * vel_prev
         if torch.linalg.norm(vel_prev) > 1e-6:
             vel = vel_prev - u * (self.tableDamping * vel_prev + self.tableFriction * vel_prev /
                                   torch.linalg.norm(vel_prev))
         else:
             vel = vel_prev - u * self.tableDamping * vel_prev
-        ang_vel = ang_vel_prev - ang_vel_prev * self.puckRadius ** 2 * self.tableDamping * u / 4
+        # ang_vel = ang_vel_prev - ang_vel_prev * self.puckRadius ** 2 * self.tableDamping * u / 4
+        ang_vel = ang_vel_prev
         return torch.cat([pos, vel, torch.atleast_1d(angle), torch.atleast_1d(ang_vel)])
 
     def update_jacobian(self, x, u):

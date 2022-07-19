@@ -15,10 +15,12 @@ torch.set_printoptions(threshold=torch.inf)
 
 
 class Kalman_EKF_Gradient(torch.nn.Module):
-    def __init__(self, params, covariance_params, segment_size, device):
+    def __init__(self, params, covariance_params, segment_size, device, set_params=False):
         super(Kalman_EKF_Gradient, self).__init__()
-        # self.register_parameter('params', torch.nn.Parameter(params))
-        self.params = params
+        if not set_params:
+            self.register_parameter('params', torch.nn.Parameter(params))
+        else:
+            self.params = params
         # self.register_parameter('covariance_params', torch.nn.Parameter(covariance_params))
         self.covariance_params = covariance_params
         self.segment_size = segment_size
@@ -235,6 +237,7 @@ def load_dataset(file_name):
     total_dataset = np.load(file_name, allow_pickle=True)
     # total_dataset[2] = total_dataset[2][50:]
     return total_dataset[6:7], total_dataset[6:7]
+    # return np.array([total_dataset[3][:-5], total_dataset[3][:-5]]), np.array([total_dataset[3][:-5], total_dataset[3][:-5]])
     # return total_dataset[2:3], total_dataset[2:3]
     '''
     'new_total_data_after_clean.npy' forth trajectory only one collision on down wall np.array([total_dataset[3][:-5], total_dataset[3][:-5]])
@@ -251,14 +254,14 @@ if __name__ == '__main__':
     device = torch.device("cuda")
     file_name = 'new_total_data_no_collision.npy'
     torch.manual_seed(0)
-    lr = 1e-3
-    batch_size = 10
+    lr = 1e-4
+    batch_size = 2
     batch_trajectory_size = 10
     epochs = 1000
     training_dataset, test_dataset = load_dataset(file_name)
 
     # table friction, table damping, table restitution, rim friction
-    init_params = torch.Tensor([0.1, 0.1, 0.79968596, 0.10029725]).to(device=device)
+    init_params = torch.Tensor([0.5, 0.5, 0.5, 0.5]).to(device=device)
     # init_params = init_params / torch.tensor([0.1, 0.1, 1, 1]) - 1
     # init_params = 0.5 * (torch.log(1 + init_params) - torch.log(1 - init_params))
     #                                      R0, R1, R2, Q01, Q23, Q4, Q5
@@ -272,7 +275,7 @@ if __name__ == '__main__':
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     epoch = 0
-    writer = SummaryWriter('./alldata/712test' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
+    writer = SummaryWriter('./alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S"))
     for t in tqdm(range(epochs)):
         writer.add_scalar('dynamics/table damping', model.params[1], t)
         writer.add_scalar('dynamics/table friction', model.params[0], t)
