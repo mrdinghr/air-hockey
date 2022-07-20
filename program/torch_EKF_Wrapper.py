@@ -5,7 +5,9 @@ from matplotlib import pyplot as plt
 import numpy as np
 from test_params import plot_with_state_list
 from test_params import EKF_plot_with_state_list
+
 torch.set_printoptions(threshold=torch.inf)
+
 
 class AirHockeyEKF:
     def __init__(self, u, system, Q, R, P, device):
@@ -34,9 +36,9 @@ class AirHockeyEKF:
         self.P = torch.eye(6, device=self.device).float() * 0.01
 
     # params: table friction, table damping, table restitution, rim friction
-    def predict(self, epoch=0):
+    def predict(self, beta=0):
         self.has_collision, self.predict_state, jacobian, self.score = self.system.apply_collision(self.state,
-                                                                                                   epoch=epoch)
+                                                                                                   beta=beta)
         if self.has_collision:
             self.F = jacobian.clone()
         else:
@@ -51,7 +53,7 @@ class AirHockeyEKF:
         #     if self.score_time == 5:
         #         self.score_time = 0
 
-    def update(self, measure):
+    def update(self, measure, update=True):
         # measurement residual
         self.y = measure - self.predict_state[[0, 1, 4]]
         if self.y[2] >= pi:
@@ -61,10 +63,12 @@ class AirHockeyEKF:
         self.S = self.H @ self.P @ self.H.T + self.R
         # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
-        self.state = self.predict_state + K @ self.y
-        # self.state = self.predict_state
-        self.P = (torch.eye(6, device=self.device) - K @ self.H) @ self.P
-        # self.P = self.P
+        if update:
+            self.state = self.predict_state + K @ self.y
+            self.P = (torch.eye(6, device=self.device) - K @ self.H) @ self.P
+        else:
+            self.state = self.predict_state
+            self.P = self.P
 
     def refresh(self, P, Q, R):
         self.P = P
@@ -82,14 +86,14 @@ class AirHockeyEKF:
         self.state = None
 
     def smooth(self, init_state, trajectory, plot=False, writer=None, epoch=0, trajectory_index=None, set_params=False,
-               cal=None):
+               cal=None, beta=0):
         state_list, variance_list, jacobian_list, collision_list, update_list = self.forward_pass(init_state,
                                                                                                   trajectory,
-                                                                                                  epoch=epoch,
+                                                                                                  beta=beta,
                                                                                                   set_params=set_params,
                                                                                                   cal=cal)
         smoothed_state_list, smoothed_variance_list = self.backward_pass(state_list, variance_list, jacobian_list,
-                                                                         update_list, epoch=epoch,
+                                                                         update_list, beta=beta,
                                                                          set_params=set_params, cal=cal)
         if plot:
             time_list = [i / 120 for i in range(len(state_list))]
@@ -100,7 +104,7 @@ class AirHockeyEKF:
         collision_list = collision_list[::-1]
         return smoothed_state_list, smoothed_variance_list, collision_list
 
-    def forward_pass(self, init_state, trajectory, epoch=0, set_params=False, cal=None):
+    def forward_pass(self, init_state, trajectory, beta=0, set_params=False, cal=None, update=True):
         self.initialize(init_state)
         EKF_res_state = [init_state]
         EKF_res_P = [self.P]
@@ -114,15 +118,16 @@ class AirHockeyEKF:
             i += 1
             if set_params:
                 params = cal.cal_params(self.state[0:2])
-                self.system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
-                                       rimFriction=params[3])
-            self.predict(epoch=epoch)
+                self.system.set_params(tableDampingX=params[0], tableDampingY=params[1], tableFrictionX=params[2],
+                                       tableFrictionY=params[3], restitution=params[4],
+                                       rimFriction=params[5])
+            self.predict(beta=beta)
             EKF_res_state.append(self.predict_state)
             EKF_res_P.append(self.P)
             EKF_res_dynamic.append(self.F)
             EKF_res_collision.append(self.has_collision)
             if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[0][-1] <= (i + 0.5) / 120:
-                self.update(trajectory[j + 1][0:3])
+                self.update(trajectory[j + 1][0:3], update=update)
                 j += 1
                 EKF_res_update.append(1)
             elif trajectory[j + 1][-1] - trajectory[0][-1] < (i - 0.5) / 120:
@@ -135,7 +140,7 @@ class AirHockeyEKF:
                 EKF_res_update.append(False)
         return EKF_res_state, EKF_res_P, EKF_res_dynamic, EKF_res_collision, EKF_res_update
 
-    def backward_pass(self, state_list, variance_list, jacobian_list, update_list, epoch=0, set_params=False, cal=None):
+    def backward_pass(self, state_list, variance_list, jacobian_list, update_list, beta=0, set_params=False, cal=None):
         smoothed_state_list = [state_list[-1]]
         smoothed_variance_list = [self.H @ variance_list[-1] @ self.H.T + self.R]
 
@@ -144,14 +149,13 @@ class AirHockeyEKF:
         time = len(state_list)
 
         for j in range(time - 1):
-            idx_cur = - j - 1
             idx_prev = - j - 2
             if set_params:
-                params = cal.cal_params(
-                    torch.stack([state_list[idx_prev][0], state_list[idx_prev][1]]))
-                self.system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
-                                       rimFriction=params[3])
-            has_collision, predict_state, _, _ = self.system.apply_collision(state_list[idx_prev], epoch=epoch)
+                params = cal.cal_params(state_list[idx_prev][:2])
+                self.system.set_params(tableDampingX=params[0], tableDampingY=params[1], tableFrictionX=params[2],
+                                       tableFrictionY=params[3], restitution=params[4],
+                                       rimFriction=params[5])
+            has_collision, predict_state, _, _ = self.system.apply_collision(state_list[idx_prev], beta=beta)
             if not has_collision:
                 xp = self.system.f(state_list[idx_prev], self.u)
             else:
@@ -189,7 +193,7 @@ class AirHockeyEKF:
         return smoothed_state_list, smoothed_variance_list
 
     def kalman_filter(self, init_state, trajectory, plot=False, writer=None, trajectory_index=None, epoch=0,
-                      set_params=False, cal=None):
+                      set_params=False, cal=None, beta=0, update=True):
         self.initialize(init_state)
         EKF_res_state = [init_state.clone()]
         EKF_res_P = [self.P]
@@ -204,13 +208,14 @@ class AirHockeyEKF:
             i += 1
             time_EKF.append(i / 120)
             if set_params:
-                params = cal.cal_params(torch.stack([self.state[0], self.state[1]]))
-                self.system.set_params(tableDamping=params[1], tableFriction=params[0], restitution=params[2],
-                                       rimFriction=params[3])
-            self.predict(epoch=epoch)
+                params = cal.cal_params(self.state[0:2])
+                self.system.set_params(tableDampingX=params[0], tableDampingY=params[1], tableFrictionX=params[2],
+                                       tableFrictionY=params[3], restitution=params[4],
+                                       rimFriction=params[5])
+            self.predict(beta=beta)
 
             if (i - 0.5) / 120 <= trajectory[j + 1][-1] - trajectory[0][-1] <= (i + 0.5) / 120:
-                self.update(trajectory[j + 1][0:3])
+                self.update(trajectory[j + 1][0:3], update=update)
                 j += 1
                 EKF_res_state.append(self.predict_state)
                 EKF_res_P.append(self.P)

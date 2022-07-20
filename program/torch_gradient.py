@@ -49,16 +49,18 @@ class Kalman_EKF_Gradient(torch.nn.Module):
         #                                            self.covariance_params[1],
         #                                            self.covariance_params[2]])))
         P = torch.eye(6, device=self.device) * 0.01
-        self.system = torch_air_hockey_baseline.SystemModel(tableDamping=self.dyna_params[1],
-                                                            tableFriction=self.dyna_params[0],
+        self.system = torch_air_hockey_baseline.SystemModel(tableDampingX=self.dyna_params[0],
+                                                            tableDampingY=self.dyna_params[1],
+                                                            tableFrictionX=self.dyna_params[2],
+                                                            tableFrictionY=self.dyna_params[3],
                                                             tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
                                                             puckRadius=0.03165, malletRadius=0.04815,
-                                                            tableRes=self.dyna_params[2],
-                                                            malletRes=0.8, rimFriction=self.dyna_params[3], dt=1 / 120)
+                                                            tableRes=self.dyna_params[4],
+                                                            malletRes=0.8, rimFriction=self.dyna_params[5], dt=1 / 120)
         self.puck_EKF = AirHockeyEKF(u=1 / 120., system=self.system, Q=Q, R=R, P=P, device=self.device)
 
     def prepare_dataset(self, trajectory_buffer, writer=None, plot=False, epoch=0, type='EKF', set_params=False,
-                        cal=None):
+                        cal=None, beta=0, update=True):
         if type == 'EKF':
             self.construct_EKF()
             segments_dataset = []
@@ -71,7 +73,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                                                                               writer=writer,
                                                                               trajectory_index=trajectory_index,
                                                                               epoch=epoch, set_params=set_params,
-                                                                              cal=cal)
+                                                                              cal=cal, beta=beta, update=update)
                     segment = self.construct_data_segments(EKF_state, collisions, trajectory_index)
                     segments_dataset.append(
                         torch.vstack(segment))
@@ -90,7 +92,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                                                                                            epoch=epoch,
                                                                                            trajectory_index=trajectory_index,
                                                                                            set_params=set_params,
-                                                                                           cal=cal)
+                                                                                           cal=cal, beta=beta)
                     segments_dataset.append(
                         torch.vstack(
                             self.construct_data_segments(smoothed_states, collisions, trajectory_index)))
@@ -115,25 +117,37 @@ class Kalman_EKF_Gradient(torch.nn.Module):
 
     def construct_data_segments(self, EKF_state, collisions, trajectory_index):
         segment_dataset = []
+        num_collision = 0
+        num_no_collision = 0
         for j in range(len(EKF_state) - self.segment_size + 1):
+            # cur_state = EKF_state[j]
+            # index_tensor = torch.tensor([trajectory_index, j + 1], device=self.device)
+            # segment_dataset.append(torch.cat((index_tensor, cur_state)))
             if np.any(collisions[j + 3: j + self.segment_size]):
                 # if np.any(collisions[j:j + 3]):
                 #     continue
                 cur_state = EKF_state[j]
                 index_tensor = torch.tensor([trajectory_index, j + 1], device=self.device)
                 segment_dataset.append(torch.cat((index_tensor, cur_state)))
+                num_collision += 1
             else:
-                if j % (self.segment_size / 2) == 0:
+                if j % (1) == 0:
                     # if np.any(collisions[j:j+3]):
                     #     continue
                     cur_state = EKF_state[j]
                     index_tensor = torch.tensor([trajectory_index, j + 1], device=self.device)
                     segment_dataset.append(torch.cat((index_tensor, cur_state)))
+                    num_no_collision += 1
+        print('collision: ', num_collision, 'no collision', num_no_collision)
         return segment_dataset
 
     def calculate_loss(self, segments_batch, measurements, loss_type='log_like', type='EKF', epoch=0, set_params=False,
-                       cal=None):
-        if type == 'EKF':
+                       cal=None, beta=0):
+        if type == 'EKF' or type == 'predict':
+            if type == 'predict':
+                update = False
+            else:
+                update = True
             self.construct_EKF()
             total_loss = 0
             num_total_loss = 0
@@ -147,36 +161,9 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                                                                                                     segment_measurment,
                                                                                                     epoch=epoch,
                                                                                                     set_params=set_params,
-                                                                                                    cal=cal)
-                EKF_state = torch.stack(EKF_state)
-                # plt.figure()
-                # plt.subplot(3, 1, 1)
-                # plt.title('x position')
-                # plt.scatter(measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 3],
-                #             measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 0],
-                #             c='g')
-                # plt.scatter(
-                #     measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 3],
-                #     EKF_state[:, 0].detach().cpu(), c='b')
-                # plt.legend
-                # plt.subplot(3, 1, 2)
-                # plt.title('y position')
-                # plt.scatter(measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 3],
-                #             measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 1],
-                #             c='g')
-                # plt.scatter(
-                #     measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 3],
-                #     EKF_state[:, 1].detach().cpu(), c='b')
-                # plt.legend()
-                # plt.subplot(3, 1, 3)
-                # plt.scatter(measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 3],
-                #             measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 2],
-                #             c='g')
-                # plt.scatter(
-                #     measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size, 3],
-                #     EKF_state[:, 4].detach().cpu(), c='b')
-                # plt.legend()
-                # plt.show()
+                                                                                                    cal=cal,
+                                                                                                    update=update,
+                                                                                                    beta=beta)
                 for i in range(len(innovation_vectors)):
                     sign, logdet = torch.linalg.slogdet(innovation_variance[i])
                     if innovation_vectors[i][2] > 1.5 * pi:
@@ -204,7 +191,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                     measurements[trajectory_idx][trajectory_point_idx:trajectory_point_idx + self.segment_size],
                     device=self.device).float()
                 smoothed_state_list, smoothed_variance_list, _ = self.puck_EKF.smooth(point[2:], segment_measurment,
-                                                                                      epoch=epoch,
+                                                                                      epoch=epoch, beta=beta,
                                                                                       set_params=set_params, cal=cal)
                 smoothed_state_tensor = torch.stack(smoothed_state_list[1:])
                 smoothed_variance_tensor = torch.stack(smoothed_variance_list[1:])
@@ -220,11 +207,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
 
                 innovation = torch.cat([innovation_xy, innovation_angle.unsqueeze(1)], dim=1)
                 if loss_type == 'log_like':
-                    if 0 in sign or -1 in sign:
-                        print('*********************have problem**********')
                     loss_i = torch.einsum('ij, ijk, ik->i', innovation, torch.linalg.inv(smoothed_variance_tensor),
                                           innovation)
-                    print("loss_i: ", loss_i)
                     total_loss = total_loss + 0.5 * torch.sum(logdet + loss_i)
                 elif loss_type == 'mse':
                     total_loss = total_loss + torch.bmm(innovation.unsqueeze(1), innovation.unsqueeze(2)).sum()

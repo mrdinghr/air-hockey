@@ -11,9 +11,24 @@ from test_params import plot_trajectory
 
 
 # all_trajectory = np.load('new_total_data_after_clean.npy')
-a = np.array([0, 1, 2, 3])
-print(np.where(a[1:]>=1))
 
+class test:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def f(self, y):
+        self.y = y
+        self.x = self.x * 0.1 * y
+
+y_param = torch.tensor([1., 1.2], requires_grad=True)
+a= test(torch.tensor(1), torch.tensor(1))
+for i in range(2):
+    a.f(y_param[i])
+
+loss = a.x
+loss.backward()
+print(y_param.grad)
 # def has_collision(pre, cur, next):
 #     if
 

@@ -11,7 +11,8 @@ def cross2d(v1, v2):
 
 
 class AirHockeyTable:
-    def __init__(self, length, width, goalWidth, puckRadius, restitution, rimFriction, dt, tableDamping):
+    def __init__(self, length, width, goalWidth, puckRadius, restitution, rimFriction, dt, tableDampingX,
+                 tableDampingY):
         self.m_length = length
         self.m_width = width
         self.m_puckRadius = puckRadius
@@ -19,7 +20,8 @@ class AirHockeyTable:
         self.m_e = restitution
         self.m_rimFriction = rimFriction
         self.m_dt = dt
-        self.tableDamping = tableDamping
+        self.tableDampingX = tableDampingX
+        self.tableDampingY = tableDampingY
 
         ref = torch.tensor([length / 2, 0.])
         offsetP1 = torch.tensor([-self.m_length / 2 + self.m_puckRadius, -self.m_width / 2 + self.m_puckRadius])
@@ -73,12 +75,13 @@ class AirHockeyTable:
         self.m_rimGlobalTransforms[3] = T_tmp
         self.m_rimGlobalTransformsInv[3] = T_tmp.T
 
-    def set_dynamic_parameter(self, restitution, rimFriction, tableDamping):
+    def set_dynamic_parameter(self, restitution, rimFriction, tableDampingX, tableDampingY):
         self.m_e = restitution
         self.m_rimFriction = rimFriction
-        self.tableDamping = tableDamping
+        self.tableDampingX = tableDampingX
+        self.tableDampingY = tableDampingY
 
-    def apply_collision(self, state, epoch=0):
+    def apply_collision(self, state, beta=0):
         pos = state[0:2]
         vel = state[2:4]
         angle = state[4]
@@ -102,8 +105,8 @@ class AirHockeyTable:
             s = cross2d(v, w) / denominator
             # r = cross2d(u.detach(), w) / denominator
             r = cross2d(u, w) / denominator
-            if (self.m_boundary[2][:2] - pos > 0).all() and (
-                    self.m_boundary[0][:2] - pos < 0).all() and (
+            if (self.m_boundary[2][:2] - pos >= 0).all() and (
+                    self.m_boundary[0][:2] - pos <= 0).all() and (
                     s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
                 state_pre = pos + s * u
                 theta_pre = angle + s * ang_vel * self.m_dt
@@ -161,8 +164,6 @@ class AirHockeyTable:
                 #         cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
                 #     else:
                 #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
-
-                beta = 0.05 * epoch + 1
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
                 weight = torch.sigmoid(beta * weight)
@@ -181,7 +182,7 @@ class AirHockeyTable:
                 m_jacCollision_mode_no_slide[3][3] = -self.m_e
                 m_jacCollision_mode_no_slide[5][2] = -2 / (3 * self.m_puckRadius)
                 m_jacCollision_mode_no_slide[5][5] = 1 / 3
-                    # m_jacCollision = m_jacCollision_mode_no_slide
+                # m_jacCollision = m_jacCollision_mode_no_slide
                 # m_jacCollision_mode_no_slide[0][2] = self.m_dt
                 # m_jacCollision_mode_no_slide[1][3] = self.m_dt
                 # m_jacCollision_mode_no_slide[4][5] = self.m_dt
@@ -193,22 +194,22 @@ class AirHockeyTable:
                 m_jacCollision_mode_slide[3][3] = -self.m_e
                 # m_jacCollision_mode_slide[4][5] = self.m_dt
                 m_jacCollision_mode_slide[5][3] = m_jacCollision_mode_slide[2][3] * 2 / self.m_puckRadius
-                    # m_jacCollision = m_jacCollision_mode_slide
+                # m_jacCollision = m_jacCollision_mode_slide
                 m_jacCollision = weight * m_jacCollision_mode_no_slide + (1 - weight) * m_jacCollision_mode_slide
                 jacobian_global = self.m_rimGlobalTransformsInv[i] @ m_jacCollision @ self.m_rimGlobalTransforms[i]
 
                 F_pre_collision = torch.eye(6, device=device)
                 F_pre_collision[0][2] = s * self.m_dt
                 F_pre_collision[1][3] = s * self.m_dt
-                F_pre_collision[2][2] = 1 - s * self.m_dt * self.tableDamping
-                F_pre_collision[3][3] = 1 - s * self.m_dt * self.tableDamping
+                F_pre_collision[2][2] = 1 - s * self.m_dt * self.tableDampingX
+                F_pre_collision[3][3] = 1 - s * self.m_dt * self.tableDampingY
                 F_pre_collision[4][5] = s * self.m_dt
                 F_pre_collision[5][5] = 1
                 F_post_collision = torch.eye(6, device=device)
                 F_post_collision[0][2] = (1 - s) * self.m_dt
                 F_post_collision[1][3] = (1 - s) * self.m_dt
-                F_post_collision[2][2] = 1 - (1 - s) * self.m_dt * self.tableDamping
-                F_post_collision[3][3] = 1 - (1 - s) * self.m_dt * self.tableDamping
+                F_post_collision[2][2] = 1 - (1 - s) * self.m_dt * self.tableDampingX
+                F_post_collision[3][3] = 1 - (1 - s) * self.m_dt * self.tableDampingY
                 F_post_collision[4][5] = (1 - s) * self.m_dt
                 F_post_collision[5][5] = 1
                 jacobian = F_post_collision @ jacobian_global @ F_pre_collision
@@ -239,30 +240,30 @@ class AirHockeyTable:
 
 
 class SystemModel:
-    def __init__(self, tableDamping, tableFriction, tableLength, tableWidth, goalWidth, puckRadius, malletRadius,
+    def __init__(self, tableDampingX, tableDampingY, tableFrictionX, tableFrictionY, tableLength, tableWidth, goalWidth,
+                 puckRadius, malletRadius,
                  tableRes, malletRes, rimFriction, dt):
-        self.tableDamping = tableDamping
-        self.tableFriction = tableFriction
+        self.tableDampingX = tableDampingX
+        self.tableDampingY = tableDampingY
+        self.tableFrictionX = tableFrictionX
+        self.tableFrictionY = tableFrictionY
         self.tableLength = tableLength
         self.tableWidth = tableWidth
         self.goalWidth = goalWidth
         self.puckRadius = puckRadius
         self.malletRadius = malletRadius
-        self.tableRes = tableRes
-        self.malletRes = malletRes
-        self.rimFriction = rimFriction
         self.dt = dt
         self.table = AirHockeyTable(length=tableLength, width=tableWidth, goalWidth=goalWidth,
                                     puckRadius=puckRadius, restitution=tableRes, rimFriction=rimFriction, dt=dt,
-                                    tableDamping=tableDamping)
+                                    tableDampingX=tableDampingX, tableDampingY=tableDampingY)
 
     @property
     def F(self):
         J_linear = torch.eye(6, device=device)
         J_linear[0][2] = self.dt
         J_linear[1][3] = self.dt
-        J_linear[2][2] = 1 - self.dt * self.tableDamping
-        J_linear[3][3] = 1 - self.dt * self.tableDamping
+        J_linear[2][2] = 1 - self.dt * self.tableDampingX
+        J_linear[3][3] = 1 - self.dt * self.tableDampingY
         J_linear[4][5] = self.dt
         J_linear[5][5] = 1
         return J_linear
@@ -281,45 +282,21 @@ class SystemModel:
             angle = angle + pi * 2
         # vel = vel_prev - u * self.tableDamping * vel_prev
         if torch.linalg.norm(vel_prev) > 1e-6:
-            vel = vel_prev - u * (self.tableDamping * vel_prev + self.tableFriction * vel_prev /
-                                  torch.linalg.norm(vel_prev))
+            vel = vel_prev - u * (torch.stack([self.tableDampingX, self.tableDampingY]) * vel_prev +
+                                  torch.stack([self.tableFrictionX, self.tableFrictionY]) * torch.sign(vel_prev))
         else:
-            vel = vel_prev - u * self.tableDamping * vel_prev
+            vel = vel_prev - u * torch.stack([self.tableDampingX, self.tableDampingY]) * vel_prev
         # ang_vel = ang_vel_prev - ang_vel_prev * self.puckRadius ** 2 * self.tableDamping * u / 4
         ang_vel = ang_vel_prev
         return torch.cat([pos, vel, torch.atleast_1d(angle), torch.atleast_1d(ang_vel)])
 
-    def update_jacobian(self, x, u):
-        self.F = self.J_linear
+    def set_params(self, tableDampingX, tableDampingY, tableFrictionX, tableFrictionY, restitution, rimFriction):
+        self.tableDampingX = tableDampingX
+        self.tableDampingY = tableDampingY
+        self.tableFrictionX = tableFrictionX
+        self.tableFrictionY = tableFrictionY
+        self.table.set_dynamic_parameter(tableDampingX=tableDampingX, tableDampingY=tableDampingY,
+                                         rimFriction=rimFriction, restitution=restitution)
 
-    def set_params(self, tableDamping, tableFriction, restitution, rimFriction):
-        self.tableDamping = tableDamping
-        self.tableFriction = tableFriction
-        self.tableRes = restitution
-        self.rimFriction = rimFriction
-        self.table.set_dynamic_parameter(tableDamping=tableDamping, rimFriction=rimFriction, restitution=restitution)
-
-    def set_damping(self, damping):
-        self.tableDamping = damping
-
-    def set_table_friction(self, mu_):
-        self.tableFriction = mu_
-
-    def set_table_dynamics_param(self, tableRes, rimFriction):
-        self.table.set_dynamic_parameter(tableRes, rimFriction)
-
-    #   self.collisionModel.setTableDynamicsParam(tableRes,rimFriction)
-    def is_outside_boundary(self, measurement):
-        if (abs(measurement[1]) > self.tableWidth / 2 - self.puckRadius + 0.01) or measurement[0] < -0.01 or \
-                measurement[0] > self.tableLength - self.puckRadius + 0.01:
-            return True
-        return False
-
-    # def is_outside_boundary(self,state):
-    #     if (abs(state[1]) > self.tableWidth / 2 - self.puckRadius + 0.01) or state[0] < -0.01 or \
-    #             state[0] > self.tableLength - self.puckRadius + 0.01:
-    #         return True
-    #     return False
-
-    def apply_collision(self, state, epoch=0):
-        return self.table.apply_collision(state, epoch=epoch)
+    def apply_collision(self, state, beta=0):
+        return self.table.apply_collision(state, beta=beta)
