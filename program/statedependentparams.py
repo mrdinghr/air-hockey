@@ -54,7 +54,7 @@ class FixedParams(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    file_name = 'new_total_data_no_collision.npy'
+    file_name = 'new_total_data_after_clean_part.npy'
     training_dataset, test_dataset = load_dataset(file_name)
     torch.manual_seed(0)
     device = torch.device("cuda")
@@ -62,13 +62,14 @@ if __name__ == '__main__':
     batch_size = 2
     batch_trajectory_size = 10
     epochs = 2000
-    # cal = StateDependentParams()
-    cal = FixedParams()
+    cal = StateDependentParams()
+    # cal = FixedParams()
     cal.to(device)
     # params: damping x, damping y, friction x, friction y, restitution, rimfriction
     init_params = cal.cal_params(torch.tensor([0., 0.], device=device))
     # best_params = torch.tensor([0.01, 0.1, 0.8, 0.15], device=device)
     covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
+    covariance_params = torch.log(covariance_params)
     model = Kalman_EKF_Gradient(init_params, covariance_params, segment_size=batch_trajectory_size, device=device,
                                 set_params=True)
     optimizer = torch.optim.Adam(cal.parameters(), lr=lr)
@@ -76,7 +77,7 @@ if __name__ == '__main__':
     logdir = './alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S")
     writer = SummaryWriter(logdir)
     prepare_typ = 'smooth'
-    loss_typ = 'EKF'
+    loss_typ = 'smooth'
     for t in tqdm(range(epochs)):
         # params: damping x, damping y, friction x, friction y, restitution, rimfriction
         beta = 29 * t / epochs + 1
