@@ -60,7 +60,8 @@ def trajectory_plot(table, system, u, state, x_var, y_var, dx_var, dy_var, theta
     return resx, resy
 
 
-def test_params_trajectory_plot(init_state, table, system, u, state_num, set_params=False, cal=None):
+def test_params_trajectory_plot(init_state, table, system, u, state_num, set_params=False, cal=None, beta=1,
+                                set_res=False, res=None):
     table_plot(table)
     resX = []
     resY = []
@@ -69,26 +70,33 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, set_par
     else:
         res_state = [init_state]
     state = init_state
-    time_list = [1/120]
+    time_list = [1 / 120]
     for i in range(state_num):
         if set_params:
             params = cal.cal_params(torch.stack([state[0], state[1]]))
             system.set_params(tableDampingX=params[0], tableDampingY=params[1], tableFrictionX=params[2],
-                                   tableFrictionY=params[3], restitution=params[4],
-                                   rimFriction=params[5])
-        has_collision, state, jacobian, score = table.apply_collision(state)
+                              tableFrictionY=params[3], restitution=params[4],
+                              rimFriction=params[5])
+            has_collision, predict_state, jacobian, score = table.apply_collision(state, beta=beta)
+        elif set_res:
+            has_collision, predict_state, jacobian, score = table.apply_collision(state, beta=beta)
+        else:
+            has_collision, predict_state, jacobian, score = table.apply_collision(state)
         # if score:
         #     break
         if not has_collision:
-            state = system.f(state, u)
+            predict_state = system.f(state, u)
+        if set_res:
+            predict_state = res.cal_res(state) + predict_state
         if set_params:
-            resX.append(state[0].cpu())
-            resY.append(state[1].cpu())
-            res_state.append(state.cpu())
+            resX.append(predict_state[0].cpu())
+            resY.append(predict_state[1].cpu())
+            res_state.append(predict_state.cpu())
         else:
-            resX.append(state[0])
-            resY.append(state[1])
-            res_state.append(state)
-        time_list.append((i+2)/120)
+            resX.append(predict_state[0])
+            resY.append(predict_state[1])
+            res_state.append(predict_state)
+        time_list.append((i + 2) / 120)
+        state = predict_state
     plt.scatter(resX, resY, alpha=0.1, c='b', label='predict state by params', s=2)
     return res_state, time_list

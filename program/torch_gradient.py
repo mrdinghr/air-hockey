@@ -60,7 +60,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
         self.puck_EKF = AirHockeyEKF(u=1 / 120., system=self.system, Q=Q, R=R, P=P, device=self.device)
 
     def prepare_dataset(self, trajectory_buffer, writer=None, plot=False, epoch=0, type='EKF', set_params=False,
-                        cal=None, beta=0, update=True):
+                        cal=None, beta=0, update=True, set_res=False, res=None):
         if type == 'EKF':
             self.construct_EKF()
             segments_dataset = []
@@ -73,7 +73,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                                                                               writer=writer,
                                                                               trajectory_index=trajectory_index,
                                                                               epoch=epoch, set_params=set_params,
-                                                                              cal=cal, beta=beta, update=update)
+                                                                              cal=cal, beta=beta, update=update,
+                                                                              set_res=set_res, res=res)
                     segment = self.construct_data_segments(EKF_state, collisions, trajectory_index)
                     segments_dataset.append(
                         torch.vstack(segment))
@@ -92,7 +93,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                                                                                            epoch=epoch,
                                                                                            trajectory_index=trajectory_index,
                                                                                            set_params=set_params,
-                                                                                           cal=cal, beta=beta)
+                                                                                           cal=cal, beta=beta,
+                                                                                           set_res=set_res, res=res)
                     segments_dataset.append(
                         torch.vstack(
                             self.construct_data_segments(smoothed_states, collisions, trajectory_index)))
@@ -142,7 +144,7 @@ class Kalman_EKF_Gradient(torch.nn.Module):
         return segment_dataset
 
     def calculate_loss(self, segments_batch, measurements, loss_type='log_like', type='EKF', epoch=0, set_params=False,
-                       cal=None, beta=0):
+                       cal=None, beta=0, set_res=False, res=None):
         if type == 'EKF' or type == 'predict':
             if type == 'predict':
                 update = False
@@ -163,7 +165,9 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                                                                                                     set_params=set_params,
                                                                                                     cal=cal,
                                                                                                     update=update,
-                                                                                                    beta=beta)
+                                                                                                    beta=beta,
+                                                                                                    set_res=set_res,
+                                                                                                    res=res)
                 for i in range(len(innovation_vectors)):
                     sign, logdet = torch.linalg.slogdet(innovation_variance[i])
                     if innovation_vectors[i][2] > 1.5 * pi:
@@ -192,7 +196,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                     device=self.device).float()
                 smoothed_state_list, smoothed_variance_list, _ = self.puck_EKF.smooth(point[2:], segment_measurment,
                                                                                       epoch=epoch, beta=beta,
-                                                                                      set_params=set_params, cal=cal)
+                                                                                      set_params=set_params, cal=cal,
+                                                                                      set_res=set_res, res=res)
                 smoothed_state_tensor = torch.stack(smoothed_state_list[1:])
                 smoothed_variance_tensor = torch.stack(smoothed_variance_list[1:])
 
@@ -224,10 +229,10 @@ def load_dataset(file_name):
     # return np.array([total_dataset[3][:-5], total_dataset[3][:-5]]), np.array([total_dataset[3][:-5], total_dataset[3][:-5]])
     # return total_dataset[2:3], total_dataset[2:3]
     '''
-    'new_total_data_after_clean.npy' forth trajectory only one collision on down wall np.array([total_dataset[3][:-5], total_dataset[3][:-5]])
-    'new_total_data_after_clean.npy' first trajectory one collision on up wall  np.array([total_dataset[0][25:120], total_dataset[0][25:120]])
-    'new_total_data_after_clean.npy' first trajectory one collision on left wall  np.array([total_dataset[5][40:95], total_dataset[5][40:95]])
-    'new_total_data_after_clean.npy' first trajectory one collision on right wall  np.array([total_dataset[5][250:320], total_dataset[5][250:320]])
+    'new_total_data_after_clean.npy' trajectory only one collision on down wall np.array([total_dataset[3][:-5], total_dataset[3][:-5]])
+    'new_total_data_after_clean.npy' trajectory one collision on up wall  np.array([total_dataset[0][25:120], total_dataset[0][25:120]])
+    'new_total_data_after_clean.npy' trajectory one collision on left wall  np.array([total_dataset[5][40:95], total_dataset[5][40:95]])
+    'new_total_data_after_clean.npy' trajectory one collision on right wall  np.array([total_dataset[5][250:320], total_dataset[5][250:320]])
     '''
     # plt.scatter(total_dataset[3][:, 0], total_dataset[3][:, 1])
     # plt.show()

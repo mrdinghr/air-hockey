@@ -81,7 +81,7 @@ class AirHockeyTable:
         self.tableDampingX = tableDampingX
         self.tableDampingY = tableDampingY
 
-    def apply_collision(self, state, beta=0):
+    def apply_collision(self, state, beta=1):
         pos = state[0:2]
         vel = state[2:4]
         angle = state[4]
@@ -105,9 +105,12 @@ class AirHockeyTable:
             s = cross2d(v, w) / denominator
             # r = cross2d(u.detach(), w) / denominator
             r = cross2d(u, w) / denominator
-            if (self.m_boundary[2][:2] - pos >= 0).all() and (
+            if ((self.m_boundary[2][:2] - pos >= 0).all() and (
                     self.m_boundary[0][:2] - pos <= 0).all() and (
-                    s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4):
+                        s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4)) or (
+                    not ((self.m_boundary[2][:2] - pos >= 0).all() and (
+                            self.m_boundary[0][:2] - pos <= 0).all()) and not (
+                    s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4)):
                 state_pre = pos + s * u
                 theta_pre = angle + s * ang_vel * self.m_dt
 
@@ -298,5 +301,5 @@ class SystemModel:
         self.table.set_dynamic_parameter(tableDampingX=tableDampingX, tableDampingY=tableDampingY,
                                          rimFriction=rimFriction, restitution=restitution)
 
-    def apply_collision(self, state, beta=0):
+    def apply_collision(self, state, beta=1):
         return self.table.apply_collision(state, beta=beta)
