@@ -81,6 +81,35 @@ class AirHockeyTable:
         self.tableDampingX = tableDampingX
         self.tableDampingY = tableDampingY
 
+    def collision_outof_boundary(self, i, pos, vel):
+        if i == 0:
+            if pos[1] <= self.m_boundary[i][1] and vel[1] < 0:
+                return True
+            else:
+                return False
+        if i == 1:
+            if pos[0] >= self.m_boundary[i][0] and vel[0] > 0:
+                return True
+            else:
+                return False
+        if i == 2:
+            if pos[1] >= self.m_boundary[i][1] and vel[1] > 0:
+                return True
+            else:
+                return False
+        if i == 3:
+            if pos[0] <= self.m_boundary[i][0] and vel[0] < 0:
+                return True
+            else:
+                return False
+
+    def collision_in_boundary(self, s, r, pos):
+        if ((self.m_boundary[2][:2] - pos >= 0).all() and (self.m_boundary[0][:2] - pos <= 0).all() and (
+                s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4)):
+            return True
+        else:
+            return False
+
     def apply_collision(self, state, beta=1):
         pos = state[0:2]
         vel = state[2:4]
@@ -105,15 +134,9 @@ class AirHockeyTable:
             s = cross2d(v, w) / denominator
             # r = cross2d(u.detach(), w) / denominator
             r = cross2d(u, w) / denominator
-            if ((self.m_boundary[2][:2] - pos >= 0).all() and (
-                    self.m_boundary[0][:2] - pos <= 0).all() and (
-                        s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4)) or (
-                    not ((self.m_boundary[2][:2] - pos >= 0).all() and (
-                            self.m_boundary[0][:2] - pos <= 0).all()) and not (
-                    s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4)):
+            if self.collision_in_boundary(s, r, pos) or self.collision_outof_boundary(i, pos, vel):
                 state_pre = pos + s * u
                 theta_pre = angle + s * ang_vel * self.m_dt
-
                 vecT = v / torch.linalg.norm(v)
                 vecN = torch.stack([-v[1] / torch.linalg.norm(v), v[0] / torch.linalg.norm(v)]).to(device=device)
                 vtScalar = torch.dot(vel, vecT)

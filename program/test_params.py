@@ -29,21 +29,21 @@ def calculate_init_state(trajectory):
 
 
 # params: damping x, damping y, friction x, friction y, restitution, rimfriction
-def plot_trajectory(params, trajectories, epoch=0, writer=None, set_params=False, cal=None, beta=1, set_res=False, res=None):
+def plot_trajectory(params, trajectories, epoch=0, writer=None, cal=None, beta=1, res=None):
     # data_set = np.load('new_total_data_after_clean.npy', allow_pickle=True)
     # data_set = np.load('example_data.npy')
-    if set_params or set_res:
+    if cal is not None or res is not None:
         params = params
     else:
         params = params.cpu().numpy()
     for trajectory_index, data_set in enumerate(trajectories):
         # trajectory_index = index  # choose which trajectory to test, current total 150 trajectories 2022.06.21
-        if set_params or set_res:
+        if cal is not None or res is not None:
             init_state = calculate_init_state(data_set)
         else:
             init_state = calculate_init_state(data_set).cpu().numpy()
         state_num = int((data_set[-1, -1] - data_set[0, -1]) * 120)
-        if set_params or set_res:
+        if cal is not None or res is not None:
             system = torch_air_hockey_baseline_no_detach.SystemModel(tableDampingX=params[0], tableDampingY=params[1],
                                                                      tableFrictionX=params[2], tableFrictionY=params[3],
                                                                      tableLength=1.948,
@@ -65,9 +65,9 @@ def plot_trajectory(params, trajectories, epoch=0, writer=None, set_params=False
                                                      rimFriction=params[3], dt=1 / 120)
         plt.figure()
         state_list, time_list = test_params_trajectory_plot(init_state=init_state, table=table, system=system,
-                                                            u=1 / 120, state_num=state_num, set_params=set_params,
-                                                            cal=cal, beta=beta, set_res=set_res, res=res)
-        if set_params or set_res:
+                                                            u=1 / 120, state_num=state_num,
+                                                            cal=cal, beta=beta, res=res)
+        if cal is not None or res is not None:
             state_list = torch.stack(state_list)
         else:
             state_list = np.vstack(state_list)

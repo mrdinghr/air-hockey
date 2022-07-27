@@ -60,25 +60,24 @@ def trajectory_plot(table, system, u, state, x_var, y_var, dx_var, dy_var, theta
     return resx, resy
 
 
-def test_params_trajectory_plot(init_state, table, system, u, state_num, set_params=False, cal=None, beta=1,
-                                set_res=False, res=None):
+def test_params_trajectory_plot(init_state, table, system, u, state_num, cal=None, beta=1, res=None):
     table_plot(table)
     resX = []
     resY = []
-    if set_params or set_res:
+    if cal is not None or res is not None:
         res_state = [init_state.cpu()]
     else:
         res_state = [init_state]
     state = init_state
     time_list = [1 / 120]
     for i in range(state_num):
-        if set_params:
+        if cal is not None:
             params = cal.cal_params(torch.stack([state[0], state[1]]))
             system.set_params(tableDampingX=params[0], tableDampingY=params[1], tableFrictionX=params[2],
                               tableFrictionY=params[3], restitution=params[4],
                               rimFriction=params[5])
             has_collision, predict_state, jacobian, score = table.apply_collision(state, beta=beta)
-        elif set_res:
+        elif res is not None:
             has_collision, predict_state, jacobian, score = table.apply_collision(state, beta=beta)
         else:
             has_collision, predict_state, jacobian, score = table.apply_collision(state)
@@ -86,9 +85,9 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, set_par
         #     break
         if not has_collision:
             predict_state = system.f(state, u)
-        if set_res:
+        if res is not None:
             predict_state = res.cal_res(state) + predict_state
-        if set_params or set_res:
+        if cal is not None or res is not None:
             resX.append(predict_state[0].cpu())
             resY.append(predict_state[1].cpu())
             res_state.append(predict_state.cpu())

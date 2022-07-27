@@ -62,6 +62,7 @@ class ResState(torch.nn.Module):
         output = torch.nn.functional.leaky_relu(output)
         output = self.fc4(output)
         # output = torch.nn.functional.relu(output)
+        output = torch.tensor([0.01, 0.01, 0.3, 0.3, 0.05, 0.5], device=device) * torch.tanh(output)
         return output
 
 
@@ -107,14 +108,15 @@ if __name__ == '__main__':
     epoch = 0
     logdir = './alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S")
     writer = SummaryWriter(logdir)
-    prepare_typ = 'smooth'
-    loss_typ = 'smooth'
+    prepare_typ = 'EKF'
+    loss_typ = 'EKF'
     for t in tqdm(range(epochs)):
         # params: damping x, damping y, friction x, friction y, restitution, rimfriction
-        beta = 29 * t / epochs + 1
+        # beta = 29 * t / epochs + 1
+        beta = 15
         training_segment_dataset = model.prepare_dataset(training_dataset, epoch=t, writer=writer, plot=True,
-                                                         type=prepare_typ, set_params=set_params, cal=cal,
-                                                         beta=beta, set_res=set_res, res=res)
+                                                         type=prepare_typ, cal=cal,
+                                                         beta=beta, res=res)
         training_index_list = range(len(training_segment_dataset))
         loader = Data.DataLoader(training_index_list, batch_size=batch_size, shuffle=True)
         batch_loss = []
@@ -129,7 +131,7 @@ if __name__ == '__main__':
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
             loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, type=loss_typ, epoch=t,
-                                        set_params=set_params, cal=cal, beta=beta, set_res=set_res, res=res)
+                                        cal=cal, beta=beta, res=res)
             if loss.requires_grad:
                 loss.backward()
                 print("loss:", loss.item())
@@ -143,10 +145,10 @@ if __name__ == '__main__':
         training_loss = np.mean(batch_loss)
         writer.add_scalar('loss/training_loss', training_loss, t)
         with torch.no_grad():
-            plot_trajectory(abs(model.params), training_dataset, epoch=t, writer=writer, set_params=set_params, cal=cal,
-                            beta=beta, set_res=set_res, res=res)
-        test_segment_dataset = model.prepare_dataset(test_dataset, type=prepare_typ, epoch=t, set_params=set_params,
-                                                     cal=cal, beta=beta, set_res=set_res, res=res)
+            plot_trajectory(abs(model.params), training_dataset, epoch=t, writer=writer, cal=cal,
+                            beta=beta, res=res)
+        test_segment_dataset = model.prepare_dataset(test_dataset, type=prepare_typ, epoch=t, cal=cal, beta=beta,
+                                                     res=res)
         test_index_list = range(len(test_segment_dataset))
         test_loader = Data.DataLoader(test_index_list, batch_size=batch_size, shuffle=True)
 
@@ -154,7 +156,7 @@ if __name__ == '__main__':
             test_batch_loss = []
             for index_batch in tqdm(test_loader):
                 loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, type=loss_typ, epoch=t,
-                                            set_params=set_params, cal=cal, beta=beta, set_res=set_res, res=res)
+                                            cal=cal, beta=beta, res=res)
                 test_batch_loss.append(loss.detach().cpu().numpy())
             test_loss = np.mean(test_batch_loss)
             writer.add_scalar('loss/test_loss', test_loss, t)
