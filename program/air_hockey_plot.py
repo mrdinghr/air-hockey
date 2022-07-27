@@ -65,7 +65,7 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, set_par
     table_plot(table)
     resX = []
     resY = []
-    if set_params:
+    if set_params or set_res:
         res_state = [init_state.cpu()]
     else:
         res_state = [init_state]
@@ -88,7 +88,7 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, set_par
             predict_state = system.f(state, u)
         if set_res:
             predict_state = res.cal_res(state) + predict_state
-        if set_params:
+        if set_params or set_res:
             resX.append(predict_state[0].cpu())
             resY.append(predict_state[1].cpu())
             res_state.append(predict_state.cpu())

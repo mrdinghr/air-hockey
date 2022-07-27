@@ -33,7 +33,7 @@ def plot_trajectory(params, trajectories, epoch=0, writer=None, set_params=False
     # data_set = np.load('new_total_data_after_clean.npy', allow_pickle=True)
     # data_set = np.load('example_data.npy')
     if set_params or set_res:
-        params = params.cpu()
+        params = params
     else:
         params = params.cpu().numpy()
     for trajectory_index, data_set in enumerate(trajectories):
@@ -67,7 +67,7 @@ def plot_trajectory(params, trajectories, epoch=0, writer=None, set_params=False
         state_list, time_list = test_params_trajectory_plot(init_state=init_state, table=table, system=system,
                                                             u=1 / 120, state_num=state_num, set_params=set_params,
                                                             cal=cal, beta=beta, set_res=set_res, res=res)
-        if set_params:
+        if set_params or set_res:
             state_list = torch.stack(state_list)
         else:
             state_list = np.vstack(state_list)
