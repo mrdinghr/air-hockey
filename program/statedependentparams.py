@@ -62,7 +62,6 @@ class ResState(torch.nn.Module):
         output = torch.nn.functional.leaky_relu(output)
         output = self.fc4(output)
         # output = torch.nn.functional.relu(output)
-        output = torch.sigmoid(output)
         return output
 
 
