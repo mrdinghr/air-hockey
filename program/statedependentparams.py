@@ -93,12 +93,14 @@ if __name__ == '__main__':
     cal = None
     res = ResState()
     res.to(device)
+    res.load_state_dict(torch.load('./alldata/718nn/2022-07-28-19-56-49bigvariancesmalllr/model.pt'))
     # cal.load_state_dict(torch.load('./alldata/718nn/2022-07-22-10-38-29smsmonecollbigcov/model.pt'))
     # params: damping x, damping y, friction x, friction y, restitution, rimfriction
     init_params = torch.tensor([0.1, 0.1, 0.05, 0.05, 0.8, 0.15], device=device)
     # init_params = cal.cal_params(torch.tensor([0., 0.], device=device))
     #  R0， R1， R2， Q01， Q23，Q4， Q5
     covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
+    # covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-5, 2e-10, 1e-7, 1.0e-5, 1.0e-4]).to(device=device)
     covariance_params = torch.log(covariance_params)
     set_params = False
     set_res = True

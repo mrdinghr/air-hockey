@@ -135,6 +135,8 @@ class AirHockeyTable:
             # r = cross2d(u.detach(), w) / denominator
             r = cross2d(u, w) / denominator
             if self.collision_in_boundary(s, r, pos) or self.collision_outof_boundary(i, pos, vel):
+                if self.collision_outof_boundary(i, pos, vel):
+                    s = 0
                 state_pre = pos + s * u
                 theta_pre = angle + s * ang_vel * self.m_dt
                 vecT = v / torch.linalg.norm(v)
