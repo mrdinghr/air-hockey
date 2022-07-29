@@ -104,13 +104,13 @@ class AirHockeyTable:
                 return False
 
     def collision_in_boundary(self, s, r, pos):
-        if ((self.m_boundary[2][:2] - pos >= 0).all() and (self.m_boundary[0][:2] - pos <= 0).all() and (
+        if ((self.m_boundary[2][:2] - pos > 0).all() and (self.m_boundary[0][:2] - pos < 0).all() and (
                 s >= 1e-4 and s <= 1 - 1e-4 and r >= 1e-4 and r <= 1 - 1e-4)):
             return True
         else:
             return False
 
-    def apply_collision(self, state, beta=1):
+    def apply_collision(self, state, beta=1, save_weight=False, writer=None, epoch=0, collision_time=0):
         pos = state[0:2]
         vel = state[2:4]
         angle = state[4]
@@ -195,6 +195,10 @@ class AirHockeyTable:
                 weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                     vtScalar + self.m_puckRadius * ang_vel)
                 weight = torch.sigmoid(beta * weight)
+                weight = 0
+                if save_weight:
+                    writer.add_scalar('weight/weight'+ str(collision_time), weight, epoch)
+                    collision_time += 1
                 slideDir = torch.sign(vtScalar + ang_vel * self.m_puckRadius)
                 vtNextSCalar = weight * (2 * vtScalar / 3 - self.m_puckRadius * ang_vel / 3) + (1 - weight) * (
                         vtScalar + self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar)
@@ -203,7 +207,6 @@ class AirHockeyTable:
                         ang_vel + 2 * self.m_rimFriction * slideDir * (1 + self.m_e) * vnSCalar / self.m_puckRadius)
                 # if 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
                 #     vtScalar + self.m_puckRadius * ang_vel) > 0:
-
                 m_jacCollision_mode_no_slide = torch.eye(6, device=device)
                 m_jacCollision_mode_no_slide[2][2] = 2 / 3
                 m_jacCollision_mode_no_slide[2][5] = -self.m_puckRadius / 3
@@ -211,16 +214,10 @@ class AirHockeyTable:
                 m_jacCollision_mode_no_slide[5][2] = -2 / (3 * self.m_puckRadius)
                 m_jacCollision_mode_no_slide[5][5] = 1 / 3
                 # m_jacCollision = m_jacCollision_mode_no_slide
-                # m_jacCollision_mode_no_slide[0][2] = self.m_dt
-                # m_jacCollision_mode_no_slide[1][3] = self.m_dt
-                # m_jacCollision_mode_no_slide[4][5] = self.m_dt
                 # else:
                 m_jacCollision_mode_slide = torch.eye(6, device=device)
-                # m_jacCollision_mode_slide[0][2] = self.m_dt
-                # m_jacCollision_mode_slide[1][3] = self.m_dt
                 m_jacCollision_mode_slide[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
                 m_jacCollision_mode_slide[3][3] = -self.m_e
-                # m_jacCollision_mode_slide[4][5] = self.m_dt
                 m_jacCollision_mode_slide[5][3] = m_jacCollision_mode_slide[2][3] * 2 / self.m_puckRadius
                 # m_jacCollision = m_jacCollision_mode_slide
                 m_jacCollision = weight * m_jacCollision_mode_no_slide + (1 - weight) * m_jacCollision_mode_slide
@@ -263,7 +260,11 @@ class AirHockeyTable:
                 #     cur_state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
                 # else:
                 #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
+                if save_weight:
+                    return True, cur_state, jacobian, score, collision_time
                 return True, cur_state, jacobian, score
+        if save_weight:
+            return False, state, torch.eye(6, device=device), score, collision_time
         return False, state, torch.eye(6, device=device), score
 
 

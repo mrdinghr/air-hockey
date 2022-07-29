@@ -132,7 +132,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                 segment_dataset.append(torch.cat((index_tensor, cur_state)))
                 num_collision += 1
             else:
-                if j % (self.segment_size / 2) == 0:
+                if j % 1 == 0:
+                # if j % (self.segment_size / 2) == 0:
                     # if np.any(collisions[j:j+3]):
                     #     continue
                     cur_state = EKF_state[j]

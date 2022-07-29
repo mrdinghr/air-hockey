@@ -93,7 +93,7 @@ if __name__ == '__main__':
     cal = None
     res = ResState()
     res.to(device)
-    res.load_state_dict(torch.load('./alldata/718nn/2022-07-28-19-56-49bigvariancesmalllr/model.pt'))
+    # res.load_state_dict(torch.load('./alldata/718nn/2022-07-29-17-47-05noswitch/model.pt'))
     # cal.load_state_dict(torch.load('./alldata/718nn/2022-07-22-10-38-29smsmonecollbigcov/model.pt'))
     # params: damping x, damping y, friction x, friction y, restitution, rimfriction
     init_params = torch.tensor([0.1, 0.1, 0.05, 0.05, 0.8, 0.15], device=device)
@@ -147,8 +147,8 @@ if __name__ == '__main__':
         training_loss = np.mean(batch_loss)
         writer.add_scalar('loss/training_loss', training_loss, t)
         with torch.no_grad():
-            plot_trajectory(abs(model.params), training_dataset, epoch=t, writer=writer, cal=cal,
-                            beta=beta, res=res)
+            plot_trajectory(abs(model.params), training_dataset, epoch=t, writer=writer, cal=cal, beta=beta, res=res,
+                            save_weight=True)
         test_segment_dataset = model.prepare_dataset(test_dataset, type=prepare_typ, epoch=t, cal=cal, beta=beta,
                                                      res=res)
         test_index_list = range(len(test_segment_dataset))
@@ -163,7 +163,7 @@ if __name__ == '__main__':
             test_loss = np.mean(test_batch_loss)
             writer.add_scalar('loss/test_loss', test_loss, t)
 
-        if t % 50 == 0:
+        if t % 2 == 0:
             if set_params:
                 torch.save(cal.state_dict(), logdir + "/model.pt")
             if set_res:
