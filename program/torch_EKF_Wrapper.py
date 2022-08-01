@@ -63,11 +63,14 @@ class AirHockeyEKF:
 
     def update(self, measure, update=True):
         # measurement residual
-        self.y = measure - self.predict_state[[0, 1, 4]]
-        if self.y[2] >= pi:
-            self.y[2] = self.y[2] - pi * 2
-        elif self.y[2] <= -pi:
-            self.y[2] = self.y[2] + pi * 2
+        innovation_xy = measure[0:2] - self.predict_state[0:2]
+        innovation_theta = measure[2] - self.predict_state[4]
+        if innovation_theta >= pi:
+            innovation_theta = innovation_theta - pi * 2
+        elif innovation_theta <= -pi:
+            innovation_theta = innovation_theta + pi * 2
+        self.y = torch.cat([innovation_xy, torch.atleast_1d(innovation_theta)])
+
         self.S = self.H @ self.P @ self.H.T + self.R
         # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)
