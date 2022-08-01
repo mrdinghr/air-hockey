@@ -78,7 +78,8 @@ def plot_trajectory(params, trajectories, epoch=0, writer=None, cal=None, beta=1
         plt.scatter(data_set[:, 0], data_set[:, 1], label='record data', c='g', s=2)
         plt.scatter(data_set[0, 0], data_set[0, 1], c='r', marker='*', s=80)
         plt.legend()
-        writer.add_figure('trajectory_' + str(trajectory_index) + '/prediction compare', plt.gcf(), epoch)
+        if writer is not None:
+            writer.add_figure('trajectory_' + str(trajectory_index) + '/prediction compare', plt.gcf(), epoch)
         plt.figure()
         plt.subplot(3, 1, 1)
         plt.title('x position')
@@ -95,8 +96,11 @@ def plot_trajectory(params, trajectories, epoch=0, writer=None, cal=None, beta=1
         plt.scatter(data_set[:, 3] - data_set[0, 3], data_set[:, 2], label='record data', c='g', s=2)
         plt.scatter(time_list, state_list[:, 4], label='predicted data', c='b', s=2)
         plt.legend()
-        writer.add_figure('trajectory_' + str(trajectory_index) + '/prediction ', plt.gcf(), epoch)
-        plt.close()
+        if writer is not None:
+            writer.add_figure('trajectory_' + str(trajectory_index) + '/prediction ', plt.gcf(), epoch)
+            plt.close()
+        else:
+            plt.show()
 
     # plt.show()
 

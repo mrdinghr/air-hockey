@@ -8,27 +8,13 @@ import torch
 import torch.utils.data as Data
 from torch.utils.data import Dataset
 from test_params import plot_trajectory
-
+from torch_gradient import load_dataset
+device = torch.device("cuda")
 
 # all_trajectory = np.load('new_total_data_after_clean.npy')
-
-class test:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-    def f(self, y):
-        self.y = y
-        self.x = self.x * 0.1 * y
-
-y_param = torch.tensor([1., 1.2], requires_grad=True)
-a= test(torch.tensor(1), torch.tensor(1))
-for i in range(2):
-    a.f(y_param[i])
-
-loss = a.x
-loss.backward()
-print(y_param.grad)
+file_name = 'new_total_data_after_clean_part.npy'
+training_dataset, test_dataset = load_dataset(file_name)
+plot_trajectory(torch.tensor([0.2, 0.2, 0.01, 0.01, 0.798, 0.122], device=device), training_dataset)
 # def has_collision(pre, cur, next):
 #     if
 

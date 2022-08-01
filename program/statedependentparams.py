@@ -62,20 +62,20 @@ class ResState(torch.nn.Module):
         output = torch.nn.functional.leaky_relu(output)
         output = self.fc4(output)
         # output = torch.nn.functional.relu(output)
-        output = torch.tensor([0.01, 0.01, 0.3, 0.3, 0.05, 0.5], device=device) * torch.tanh(output)
+        output = torch.tensor([0.0, 0.0, 0.3, 0.3, 0.0, 1], device=device) * torch.tanh(output)
         return output
 
 
 class FixedParams(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.register_parameter("dyna_params", torch.nn.Parameter(torch.tensor([0.5, 0.5, 0.5, 0.5, 0.5, 0.5])))
+        self.register_parameter("dyna_params", torch.nn.Parameter(torch.tensor([0.1, 0.1, 0.05, 0.05, 0.8, 0.15])))
 
     def cal_params(self, state):
         if len(state.size()) == 1:
-            return torch.sigmoid(self.dyna_params)
+            return torch.abs(self.dyna_params)
         elif len(state.size()) == 2:
-            return torch.sigmoid(self.dyna_params.tile(state.shape[-2], 1))
+            return torch.abs(self.dyna_params.tile(state.shape[-2], 1))
 
 
 if __name__ == '__main__':
@@ -83,35 +83,40 @@ if __name__ == '__main__':
     training_dataset, test_dataset = load_dataset(file_name)
     torch.manual_seed(0)
     device = torch.device("cuda")
-    lr = 1e-4
+    lr = 1e-5
     batch_size = 2
-    batch_trajectory_size = 10
+    batch_trajectory_size = 30
     epochs = 2000
     # cal = StateDependentParams()
     # cal = FixedParams()
     # cal.to(device)
     cal = None
+    # res = None
     res = ResState()
     res.to(device)
-    # res.load_state_dict(torch.load('./alldata/718nn/2022-07-29-17-47-05noswitch/model.pt'))
+    # res.load_state_dict(torch.load('./alldata/718nn/2022-08-01-11-54-41lessnocoll/model.pt'))
     # cal.load_state_dict(torch.load('./alldata/718nn/2022-07-22-10-38-29smsmonecollbigcov/model.pt'))
     # params: damping x, damping y, friction x, friction y, restitution, rimfriction
-    init_params = torch.tensor([0.1, 0.1, 0.05, 0.05, 0.8, 0.15], device=device)
+    init_params = torch.tensor([0.2, 0.2, 0.01, 0.01, 0.798, 0.122], device=device)
     # init_params = cal.cal_params(torch.tensor([0., 0.], device=device))
     #  R0， R1， R2， Q01， Q23，Q4， Q5
     covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
-    # covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-5, 2e-10, 1e-7, 1.0e-5, 1.0e-4]).to(device=device)
+    # covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-4, 2e-10, 1e-7, 1.0e-3, 1.0e-2]).to(device=device)
     covariance_params = torch.log(covariance_params)
     set_params = False
     set_res = True
     model = Kalman_EKF_Gradient(init_params, covariance_params, segment_size=batch_trajectory_size, device=device,
                                 set_params=set_params)
-    optimizer = torch.optim.Adam(res.parameters(), lr=lr)
+    if set_res:
+        optimizer = torch.optim.Adam(res.parameters(), lr=lr)
+    elif set_params:
+        optimizer = torch.optim.Adam(cal.parameters(), lr=lr)
     epoch = 0
     logdir = './alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S")
     writer = SummaryWriter(logdir)
     prepare_typ = 'EKF'
-    loss_typ = 'EKF'
+    loss_form = 'predict'
+    loss_type = 'log_like'  # mse
     for t in tqdm(range(epochs)):
         # params: damping x, damping y, friction x, friction y, restitution, rimfriction
         # beta = 29 * t / epochs + 1
@@ -123,6 +128,7 @@ if __name__ == '__main__':
         loader = Data.DataLoader(training_index_list, batch_size=batch_size, shuffle=True)
         batch_loss = []
         params = model.params
+        # params = torch.abs(cal.dyna_params)
         # params = cal.cal_params(training_segment_dataset[:, 2:4]).mean(dim=0)
         writer.add_scalar('dynamics/table damping x', params[0], t)
         writer.add_scalar('dynamics/table damping y', params[1], t)
@@ -132,8 +138,8 @@ if __name__ == '__main__':
         writer.add_scalar('dynamics/rim friction', params[5], t)
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
-            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, type=loss_typ, epoch=t,
-                                        cal=cal, beta=beta, res=res)
+            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, type=loss_form, epoch=t,
+                                        cal=cal, beta=beta, res=res, loss_type=loss_type)
             if loss.requires_grad:
                 loss.backward()
                 print("loss:", loss.item())
@@ -157,8 +163,8 @@ if __name__ == '__main__':
         with torch.no_grad():
             test_batch_loss = []
             for index_batch in tqdm(test_loader):
-                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, type=loss_typ, epoch=t,
-                                            cal=cal, beta=beta, res=res)
+                loss = model.calculate_loss(test_segment_dataset[index_batch], test_dataset, type=loss_form, epoch=t,
+                                            cal=cal, beta=beta, res=res, loss_type=loss_type)
                 test_batch_loss.append(loss.detach().cpu().numpy())
             test_loss = np.mean(test_batch_loss)
             writer.add_scalar('loss/test_loss', test_loss, t)

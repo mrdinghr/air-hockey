@@ -73,6 +73,7 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, cal=Non
     state = init_state
     time_list = [1 / 120]
     collision_time = 0
+    collision = 0
     for i in range(state_num):
 
         if cal is not None:
@@ -82,9 +83,11 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, cal=Non
                               rimFriction=params[5])
             has_collision, predict_state, jacobian, score = table.apply_collision(state, beta=beta)
         elif res is not None:
-            has_collision, predict_state, jacobian, score, collision_time = table.apply_collision(state, beta=beta, writer=writer,
-                                                                                  epoch=epoch, save_weight=save_weight,
-                                                                                  collision_time=collision_time)
+            has_collision, predict_state, jacobian, score, collision_time = table.apply_collision(state, beta=beta,
+                                                                                                  writer=writer,
+                                                                                                  epoch=epoch,
+                                                                                                  save_weight=save_weight,
+                                                                                                  collision_time=collision_time)
         else:
             has_collision, predict_state, jacobian, score = table.apply_collision(state)
         # if score:
@@ -92,11 +95,16 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, cal=Non
         if not has_collision:
             predict_state = system.f(state, u)
         if res is not None:
+            if has_collision:
+                collision = 0
+            collision += 1
             predict_state = res.cal_res(state) + predict_state
             if predict_state[4] > pi:
                 predict_state[4] = predict_state[4] - 2 * pi
             elif predict_state[4] < -pi:
                 predict_state[4] = predict_state[4] + 2 * pi
+            if collision >= 5:
+                collision = 0
         if cal is not None or res is not None:
             resX.append(predict_state[0].cpu())
             resY.append(predict_state[1].cpu())

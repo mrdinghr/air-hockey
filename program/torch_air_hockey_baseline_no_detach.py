@@ -197,7 +197,7 @@ class AirHockeyTable:
                 weight = torch.sigmoid(beta * weight)
                 weight = 0
                 if save_weight:
-                    writer.add_scalar('weight/weight'+ str(collision_time), weight, epoch)
+                    writer.add_scalar('weight/weight' + str(collision_time), weight, epoch)
                     collision_time += 1
                 slideDir = torch.sign(vtScalar + ang_vel * self.m_puckRadius)
                 vtNextSCalar = weight * (2 * vtScalar / 3 - self.m_puckRadius * ang_vel / 3) + (1 - weight) * (
@@ -215,10 +215,12 @@ class AirHockeyTable:
                 m_jacCollision_mode_no_slide[5][5] = 1 / 3
                 # m_jacCollision = m_jacCollision_mode_no_slide
                 # else:
+                mu = min(self.m_rimFriction,
+                          abs(vtScalar + self.m_puckRadius * ang_vel) / (3 * (1 + self.m_e) * torch.abs(vnSCalar)))
                 m_jacCollision_mode_slide = torch.eye(6, device=device)
-                m_jacCollision_mode_slide[2][3] = self.m_rimFriction * slideDir * (1 + self.m_e)
+                m_jacCollision_mode_slide[2][3] = mu * slideDir * (1 + self.m_e)
                 m_jacCollision_mode_slide[3][3] = -self.m_e
-                m_jacCollision_mode_slide[5][3] = m_jacCollision_mode_slide[2][3] * 2 / self.m_puckRadius
+                m_jacCollision_mode_slide[5][3] = mu * slideDir * (1 + self.m_e) * 2 / self.m_puckRadius
                 # m_jacCollision = m_jacCollision_mode_slide
                 m_jacCollision = weight * m_jacCollision_mode_no_slide + (1 - weight) * m_jacCollision_mode_slide
                 jacobian_global = self.m_rimGlobalTransformsInv[i] @ m_jacCollision @ self.m_rimGlobalTransforms[i]
@@ -247,19 +249,9 @@ class AirHockeyTable:
                 else:
                     # cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
                     cur_state[4] = jacobian[4] @ state
-
-                # cur_state[0:2] = state_pre + (1 - s) * (vnNextScalar * vecN + vtNextSCalar * vecT) * self.m_dt
-                # cur_state[2:4] = -self.m_e * vnSCalar * vecN + vtNextSCalar * vecT
-                # cur_state[5] = cur_state5
                 cur_state[0:2] = jacobian[0:2] @ state
                 cur_state[2:4] = jacobian[2:4] @ state
                 cur_state[5] = jacobian[5] @ state
-                # if theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt > pi:
-                #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt - 2*pi
-                # elif theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt < -pi:
-                #     cur_state[4] = 2*pi + theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
-                # else:
-                #     cur_state[4] = theta + s * dtheta * self.m_dt + (1 - s) * cur_state[5] * self.m_dt
                 if save_weight:
                     return True, cur_state, jacobian, score, collision_time
                 return True, cur_state, jacobian, score
