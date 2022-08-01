@@ -51,9 +51,8 @@ class AirHockeyEKF:
             self.F = self.system.F.clone()
             self.predict_state = self.system.f(self.state, self.u)
         if res is not None:
-            self.F = self.F + torch.autograd.functional.jacobian(res.cal_res, self.state)
+            self.F = self.F + torch.autograd.functional.jacobian(res.cal_res, self.state, create_graph=True)
             self.predict_state = self.predict_state + res.cal_res(self.state)
-        self.reset_angle(self.predict_state)
         self.P = self.F @ self.P @ self.F.T + self.Q
         # if self.score or self.score_time != 0:
         #     self.score_time += 1
