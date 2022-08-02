@@ -179,7 +179,8 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                         total_loss = total_loss + 0.5 * (
                                 logdet + innovation @ innovation_variance[i].inverse() @ innovation)
                     elif loss_type == 'mse':
-                        total_loss = total_loss + 0.5 * (innovation @ innovation)
+                        weight = torch.diag(torch.tensor([1., 1., 0.2], device=self.device))
+                        total_loss = total_loss + 0.5 * (innovation @ weight @ innovation)
                 num_total_loss += 1
             return total_loss / num_total_loss
         if type == 'smooth':
