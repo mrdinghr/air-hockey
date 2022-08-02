@@ -70,7 +70,6 @@ class AirHockeyEKF:
         elif innovation_theta <= -pi:
             innovation_theta = innovation_theta + pi * 2
         self.y = torch.cat([innovation_xy, torch.atleast_1d(innovation_theta)])
-
         self.S = self.H @ self.P @ self.H.T + self.R
         # self.S.requires_grad_(True)
         K = self.P @ self.H.T @ torch.linalg.inv(self.S)

@@ -83,7 +83,7 @@ if __name__ == '__main__':
     training_dataset, test_dataset = load_dataset(file_name)
     torch.manual_seed(0)
     device = torch.device("cuda")
-    lr = 1e-5
+    lr = 1e-4
     batch_size = 2
     batch_trajectory_size = 30
     epochs = 2000
@@ -100,8 +100,8 @@ if __name__ == '__main__':
     init_params = torch.tensor([0.2, 0.2, 0.01, 0.01, 0.798, 0.122], device=device)
     # init_params = cal.cal_params(torch.tensor([0., 0.], device=device))
     #  R0， R1， R2， Q01， Q23，Q4， Q5
-    covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
-    # covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-4, 2e-10, 1e-7, 1.0e-3, 1.0e-2]).to(device=device)
+    # covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-3, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
+    covariance_params = torch.Tensor([2.5e-7, 2.5e-7, 9.1e-5, 2e-10, 1e-7, 1.0e-2, 1.0e-1]).to(device=device)
     covariance_params = torch.log(covariance_params)
     set_params = False
     set_res = True
@@ -112,11 +112,12 @@ if __name__ == '__main__':
     elif set_params:
         optimizer = torch.optim.Adam(cal.parameters(), lr=lr)
     epoch = 0
-    logdir = './alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S")
-    writer = SummaryWriter(logdir)
     prepare_typ = 'EKF'
-    loss_form = 'predict'
+    loss_form = 'EKF'
     loss_type = 'log_like'  # mse
+    addition_information = ''
+    logdir = './alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S") + prepare_typ + '+' + loss_form + addition_information
+    writer = SummaryWriter(logdir)
     for t in tqdm(range(epochs)):
         # params: damping x, damping y, friction x, friction y, restitution, rimfriction
         # beta = 29 * t / epochs + 1
