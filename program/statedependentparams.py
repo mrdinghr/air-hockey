@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # res = None
     res = ResState()
     res.to(device)
-    # res.load_state_dict(torch.load('./alldata/718nn/2022-08-01-11-54-41lessnocoll/model.pt'))
+    res.load_state_dict(torch.load('./alldata/718nn/2022-08-02-15-05-19EKF+EKF/model.pt'))
     # cal.load_state_dict(torch.load('./alldata/718nn/2022-07-22-10-38-29smsmonecollbigcov/model.pt'))
     # params: damping x, damping y, friction x, friction y, restitution, rimfriction
     init_params = torch.tensor([0.2, 0.2, 0.01, 0.01, 0.798, 0.122], device=device)
