@@ -8,14 +8,14 @@ import torch
 import torch_air_hockey_baseline_no_detach as torch_air_hockey_baseline
 from torch_EKF_Wrapper import AirHockeyEKF
 from math import pi
-from test_params import plot_trajectory
+from test_params import EKF_plot_with_state_list
 from tqdm import tqdm
 
 torch.set_printoptions(threshold=torch.inf)
 
 
 class Kalman_EKF_Gradient(torch.nn.Module):
-    def __init__(self, params, covariance_params, segment_size, device, set_params=False):
+    def __init__(self, params, covariance_params, covariance_params_collision, segment_size, device, set_params=False):
         super(Kalman_EKF_Gradient, self).__init__()
         if not set_params:
             self.register_parameter('params', torch.nn.Parameter(params))
@@ -23,16 +23,12 @@ class Kalman_EKF_Gradient(torch.nn.Module):
             self.params = params
         # self.register_parameter('covariance_params', torch.nn.Parameter(covariance_params))
         self.covariance_params = covariance_params
+        self.covariance_params_collision = covariance_params_collision
         self.segment_size = segment_size
         self.device = device
         self.dyna_params = None
         # self.covariance_params = covariance_params
-        self.system = None
-        self.table = None
         self.puck_EKF = None
-        self.R = None
-        self.Q = None
-        self.P = None
 
     def construct_EKF(self):
         self.dyna_params = torch.abs(self.params)
@@ -42,22 +38,22 @@ class Kalman_EKF_Gradient(torch.nn.Module):
         Q = torch.diag(torch.exp(torch.stack([self.covariance_params[3], self.covariance_params[3],
                                               self.covariance_params[4], self.covariance_params[4],
                                               self.covariance_params[5], self.covariance_params[6]])))
-        # self.Q = torch.diag(torch.abs(torch.stack([self.covariance_params[3], self.covariance_params[3],
-        #                                            self.covariance_params[4], self.covariance_params[4],
-        #                                            self.covariance_params[5], self.covariance_params[6]])) + 1e-6)
-        # self.R = torch.diag(torch.abs(torch.stack([self.covariance_params[0],
-        #                                            self.covariance_params[1],
-        #                                            self.covariance_params[2]])))
+        Q_collision = torch.diag(
+            torch.exp(torch.stack([self.covariance_params_collision[3], self.covariance_params_collision[3],
+                                   self.covariance_params_collision[4], self.covariance_params_collision[4],
+                                   self.covariance_params_collision[5], self.covariance_params_collision[6]])))
         P = torch.eye(6, device=self.device) * 0.01
-        self.system = torch_air_hockey_baseline.SystemModel(tableDampingX=self.dyna_params[0],
-                                                            tableDampingY=self.dyna_params[1],
-                                                            tableFrictionX=self.dyna_params[2],
-                                                            tableFrictionY=self.dyna_params[3],
-                                                            tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
-                                                            puckRadius=0.03165, malletRadius=0.04815,
-                                                            tableRes=self.dyna_params[4],
-                                                            malletRes=0.8, rimFriction=self.dyna_params[5], dt=1 / 120)
-        self.puck_EKF = AirHockeyEKF(u=1 / 120., system=self.system, Q=Q, R=R, P=P, device=self.device)
+        dynamic_system = torch_air_hockey_baseline.SystemModel(tableDampingX=self.dyna_params[0],
+                                                               tableDampingY=self.dyna_params[1],
+                                                               tableFrictionX=self.dyna_params[2],
+                                                               tableFrictionY=self.dyna_params[3],
+                                                               tableLength=1.948, tableWidth=1.038, goalWidth=0.25,
+                                                               puckRadius=0.03165, malletRadius=0.04815,
+                                                               tableRes=self.dyna_params[4],
+                                                               malletRes=0.8, rimFriction=self.dyna_params[5],
+                                                               dt=1 / 120)
+        self.puck_EKF = AirHockeyEKF(u=1 / 120., system=dynamic_system, Q=Q, R=R, P=P, device=self.device,
+                                     Q_collision=Q_collision)
 
     def prepare_dataset(self, trajectory_buffer, writer=None, plot=False, epoch=0, type='EKF', cal=None, beta=0,
                         update=True, res=None):
@@ -69,15 +65,16 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                     trajectory_tensor = torch.tensor(trajectory, device=self.device).float()
                     init_state = self.calculate_init_state(trajectory)
                     EKF_state, collisions, _, _ = self.puck_EKF.kalman_filter(init_state, trajectory_tensor[1:],
-                                                                              plot=plot,
-                                                                              writer=writer,
-                                                                              trajectory_index=trajectory_index,
-                                                                              epoch=epoch,
                                                                               cal=cal, beta=beta, update=update,
                                                                               res=res)
+                    predict_state, _, _, _ = self.puck_EKF.kalman_filter(init_state, trajectory_tensor[1:],
+                                                                         cal=cal, beta=beta, update=False,
+                                                                         res=res)
+                    EKF_plot_with_state_list(EKF_state_list=EKF_state, trajectory=trajectory_tensor[1:],
+                                             prediction=predict_state, writer=writer, epoch=epoch,
+                                             trajectory_index=trajectory_index)
                     segment = self.construct_data_segments(EKF_state, collisions, trajectory_index)
-                    segments_dataset.append(
-                        torch.vstack(segment))
+                    segments_dataset.append(torch.vstack(segment))
             return torch.vstack(segments_dataset)
         if type == 'smooth':
             self.construct_EKF()
@@ -161,7 +158,6 @@ class Kalman_EKF_Gradient(torch.nn.Module):
                     device=self.device).float()
                 EKF_state, _, innovation_vectors, innovation_variance = self.puck_EKF.kalman_filter(point[2:],
                                                                                                     segment_measurment,
-                                                                                                    epoch=epoch,
                                                                                                     cal=cal,
                                                                                                     update=update,
                                                                                                     beta=beta,

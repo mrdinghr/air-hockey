@@ -192,9 +192,9 @@ class AirHockeyTable:
                 #         cur_state[4] = 2 * pi + theta_pre + (1 - s) * cur_state5 * self.m_dt
                 #     else:
                 #         cur_state[4] = theta_pre + (1 - s) * cur_state5 * self.m_dt
-                weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
-                    vtScalar + self.m_puckRadius * ang_vel)
-                weight = torch.sigmoid(beta * weight)
+                # weight = 3 * self.m_rimFriction * (1 + self.m_e) * torch.abs(vnSCalar) - torch.abs(
+                #     vtScalar + self.m_puckRadius * ang_vel)
+                # weight = torch.sigmoid(beta * weight)
                 weight = 0
                 if save_weight:
                     writer.add_scalar('weight/weight' + str(collision_time), weight, epoch)
@@ -215,8 +215,9 @@ class AirHockeyTable:
                 m_jacCollision_mode_no_slide[5][5] = 1 / 3
                 # m_jacCollision = m_jacCollision_mode_no_slide
                 # else:
-                mu = min(self.m_rimFriction,
-                          abs(vtScalar + self.m_puckRadius * ang_vel) / (3 * (1 + self.m_e) * torch.abs(vnSCalar)))
+                mu = self.m_rimFriction
+                # mu = min(self.m_rimFriction,
+                #           abs(vtScalar + self.m_puckRadius * ang_vel) / (3 * (1 + self.m_e) * torch.abs(vnSCalar)))
                 m_jacCollision_mode_slide = torch.eye(6, device=device)
                 m_jacCollision_mode_slide[2][3] = mu * slideDir * (1 + self.m_e)
                 m_jacCollision_mode_slide[3][3] = -self.m_e

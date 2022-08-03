@@ -96,15 +96,13 @@ def test_params_trajectory_plot(init_state, table, system, u, state_num, cal=Non
             predict_state = system.f(state, u)
         if res is not None:
             if has_collision:
-                collision = 0
-            collision += 1
-            predict_state = res.cal_res(state) + predict_state
+                predict_state = res.cal_res_collision(state) + predict_state
+            else:
+                predict_state = res.cal_res(state) + predict_state
             if predict_state[4] > pi:
                 predict_state[4] = predict_state[4] - 2 * pi
             elif predict_state[4] < -pi:
                 predict_state[4] = predict_state[4] + 2 * pi
-            if collision >= 5:
-                collision = 0
         if cal is not None or res is not None:
             resX.append(predict_state[0].cpu())
             resY.append(predict_state[1].cpu())

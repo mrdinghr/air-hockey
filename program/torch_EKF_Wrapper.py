@@ -10,13 +10,11 @@ torch.set_printoptions(threshold=torch.inf)
 
 
 class AirHockeyEKF:
-    def __init__(self, u, system, Q, R, P, device):
+    def __init__(self, u, system, Q, Q_collision,R, P, device):
         self.state = None
         self.system = system
         self.Q = Q
-        self.Q_score = torch.zeros((6, 6), device=device)
-        self.Q_score[2][2] = 1
-        self.Q_score[3][3] = 1
+        self.Q_collision = Q_collision
         self.R = R
         self.P = P
         self.u = u
@@ -51,9 +49,17 @@ class AirHockeyEKF:
             self.F = self.system.F.clone()
             self.predict_state = self.system.f(self.state, self.u)
         if res is not None:
-            self.F = self.F + torch.autograd.functional.jacobian(res.cal_res, self.state, create_graph=True)
-            self.predict_state = self.predict_state + res.cal_res(self.state)
-        self.P = self.F @ self.P @ self.F.T + self.Q
+            if self.has_collision:
+                self.F = self.F + torch.autograd.functional.jacobian(res.cal_res_collision, self.state, create_graph=True)
+                self.predict_state = self.predict_state + res.cal_res_collision(self.state)
+            else:
+                self.F = self.F + torch.autograd.functional.jacobian(res.cal_res, self.state, create_graph=True)
+                self.predict_state = self.predict_state + res.cal_res(self.state)
+
+        if self.has_collision:
+            self.P = self.F @ self.P @ self.F.T + self.Q_collision
+        else:
+            self.P = self.F @ self.P @ self.F.T + self.Q
         # if self.score or self.score_time != 0:
         #     self.score_time += 1
         #     # self.predict_state = self.state + 0 * self.system.tableDamping
@@ -201,8 +207,7 @@ class AirHockeyEKF:
         smoothed_variance_list.append(self.H @ variance_list[0] @ self.H.T + self.R)
         return smoothed_state_list, smoothed_variance_list
 
-    def kalman_filter(self, init_state, trajectory, plot=False, writer=None, trajectory_index=None, epoch=0, cal=None,
-                      beta=0, update=True, res=None):
+    def kalman_filter(self, init_state, trajectory, cal=None, beta=0, update=True, res=None):
         self.initialize(init_state)
         EKF_res_state = [init_state.clone()]
         EKF_res_P = [self.P]
@@ -236,9 +241,6 @@ class AirHockeyEKF:
                 self.state = self.predict_state
             else:
                 self.state = self.predict_state
-        if plot:
-            EKF_plot_with_state_list(EKF_res_state, trajectory, writer=writer, trajectory_index=trajectory_index,
-                                     epoch=epoch)
         return EKF_res_state, EKF_res_collision, innovation_vector, innovation_variance
 
 
