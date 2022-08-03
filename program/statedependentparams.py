@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # res = None
     res = ResState()
     res.to(device)
-    res.load_state_dict(torch.load('./alldata/718nn/2022-08-02-16-16-14EKF+EKF/model.pt'))
+    # res.load_state_dict(torch.load('./alldata/718nn/2022-08-02-16-16-14EKF+EKF/model.pt'))
     # cal.load_state_dict(torch.load('./alldata/718nn/2022-07-22-10-38-29smsmonecollbigcov/model.pt'))
     # params: damping x, damping y, friction x, friction y, restitution, rimfriction
     init_params = torch.tensor([0.2, 0.2, 0.01, 0.01, 0.798, 0.122], device=device)
@@ -114,9 +114,10 @@ if __name__ == '__main__':
     epoch = 0
     prepare_typ = 'EKF'
     loss_form = 'EKF'
-    loss_type = 'mse'  # log_like
-    addition_information = '+mse'
-    logdir = './alldata/718nn' + datetime.datetime.now().strftime("/%Y-%m-%d-%H-%M-%S") + prepare_typ + '+' + loss_form + addition_information
+    loss_type = 'mse'  # mse
+    addition_information = '+fintunemseweight'
+    logdir = './alldata/718nn' + datetime.datetime.now().strftime(
+        "/%Y-%m-%d-%H-%M-%S") + prepare_typ + '+' + loss_form + '+' + loss_type + addition_information
     writer = SummaryWriter(logdir)
     for t in tqdm(range(epochs)):
         # params: damping x, damping y, friction x, friction y, restitution, rimfriction
@@ -139,8 +140,8 @@ if __name__ == '__main__':
         writer.add_scalar('dynamics/rim friction', params[5], t)
         for index_batch in tqdm(loader):
             optimizer.zero_grad()
-            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, type=loss_form, epoch=t,
-                                        cal=cal, beta=beta, res=res, loss_type=loss_type)
+            loss = model.calculate_loss(training_segment_dataset[index_batch], training_dataset, type=loss_form,
+                                        epoch=t, cal=cal, beta=beta, res=res, loss_type=loss_type)
             if loss.requires_grad:
                 loss.backward()
                 print("loss:", loss.item())
